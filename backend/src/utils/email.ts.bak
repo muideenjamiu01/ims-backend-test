@@ -1,0 +1,251 @@
+import nodemailer from 'nodemailer';
+import logger from '../config/logger';
+
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT) || 587,
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: {
+    user: process.env.SMTP_USER ,
+    pass: process.env.SMTP_PASSWORD,
+  },
+});
+
+interface SendEmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}
+
+export const sendEmail = async (options: SendEmailOptions) => {
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM || 'IMS <noreply@ims.edu>',
+      to: options.to,
+      subject: options.subject,
+      text: options.text,
+      html: options.html,
+    });
+
+    logger.info(`Email sent: ${info.messageId}`);
+    return { success: true, messageId: info.messageId };
+  } catch (error: any) {
+    logger.error('Email sending error:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+export const sendPasswordResetEmail = async (email: string, resetToken: string) => {
+  const resetUrl = `${process.env.STUDENT_PORTAL_URL}/reset-password?token=${resetToken}`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background-color: #f9fafb; }
+          .button { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            background-color: #4F46E5; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 6px;
+            margin: 20px 0;
+          }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Password Reset Request</h1>
+          </div>
+          <div class="content">
+            <p>Hi there,</p>
+            <p>You requested to reset your password for your IMS Student Portal account.</p>
+            <p>Click the button below to reset your password:</p>
+            <center>
+              <a href="${resetUrl}" class="button">Reset Password</a>
+            </center>
+            <p>Or copy and paste this link into your browser:</p>
+            <p style="word-break: break-all;">${resetUrl}</p>
+            <p>This link will expire in 1 hour.</p>
+            <p>If you didn't request this, please ignore this email.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Institutional Management System. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: 'Password Reset Request - IMS Student Portal',
+    html,
+    text: `Reset your password: ${resetUrl}`,
+  });
+};
+
+export const sendAdmissionApprovalEmail = async (
+  email: string,
+  name: string,
+  matricNo: string
+) => {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #10B981; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background-color: #f9fafb; }
+          .matric-box {
+            background-color: #EFF6FF;
+            border: 2px solid #3B82F6;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            border-radius: 8px;
+          }
+          .matric-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1E40AF;
+          }
+          .button { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            background-color: #10B981; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 6px;
+            margin: 20px 0;
+          }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🎉 Congratulations!</h1>
+          </div>
+          <div class="content">
+            <p>Dear ${name},</p>
+            <p>We are pleased to inform you that your admission application has been <strong>APPROVED</strong>!</p>
+            
+            <div class="matric-box">
+              <p style="margin: 0; font-size: 14px; color: #666;">Your Matriculation Number:</p>
+              <p class="matric-number">${matricNo}</p>
+            </div>
+
+            <p><strong>Next Steps:</strong></p>
+            <ol>
+              <li>Pay your acceptance fee (₦50,000)</li>
+              <li>Complete your student registration</li>
+              <li>Access the Student Portal with your credentials</li>
+            </ol>
+
+            <center>
+              <a href="${process.env.STUDENT_PORTAL_URL}/login" class="button">Access Student Portal</a>
+            </center>
+
+            <p>Welcome to our institution! We look forward to your academic journey with us.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Institutional Management System. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: 'Admission Approved - IMS',
+    html,
+    text: `Congratulations! Your admission has been approved. Your matriculation number is: ${matricNo}`,
+  });
+};
+
+export const sendPaymentReceiptEmail = async (
+  email: string,
+  name: string,
+  invoiceNo: string,
+  amount: number,
+  receiptUrl: string
+) => {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background-color: #f9fafb; }
+          .amount { 
+            font-size: 32px; 
+            font-weight: bold; 
+            color: #10B981; 
+            text-align: center;
+            margin: 20px 0;
+          }
+          .button { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            background-color: #4F46E5; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 6px;
+            margin: 20px 0;
+          }
+          .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>✅ Payment Successful</h1>
+          </div>
+          <div class="content">
+            <p>Dear ${name},</p>
+            <p>Your payment has been successfully processed.</p>
+            
+            <div class="amount">₦${amount.toLocaleString()}</div>
+
+            <p><strong>Payment Details:</strong></p>
+            <ul>
+              <li>Invoice Number: ${invoiceNo}</li>
+              <li>Amount Paid: ₦${amount.toLocaleString()}</li>
+              <li>Date: ${new Date().toLocaleDateString()}</li>
+            </ul>
+
+            <center>
+              <a href="${receiptUrl}" class="button">Download Receipt</a>
+            </center>
+
+            <p>Thank you for your payment!</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Institutional Management System. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: `Payment Receipt - ${invoiceNo}`,
+    html,
+    text: `Payment successful: ₦${amount.toLocaleString()} for invoice ${invoiceNo}`,
+  });
+};

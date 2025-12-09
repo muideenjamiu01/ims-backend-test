@@ -1,0 +1,34 @@
+    // If approved, generate matric number
+    if (data.status === 'APPROVED') {
+      const existingMatricNumber = await prisma.matricNumber.findUnique({
+        where: { applicantId: parseInt(id) },
+      });
+
+      let matricNo: string;
+      if (!existingMatricNumber) {
+        const year = new Date().getFullYear();
+        const count = await prisma.matricNumber.count();
+        matricNo = `IMS/${year}/${String(count + 1).padStart(5, '0')}`;
+
+        await prisma.matricNumber.create({
+          data: {
+            applicantId: parseInt(id),
+            matricNo,
+          },
+        });
+      } else {
+        matricNo = existingMatricNumber.matricNo;
+      }
+
+      // Send approval email
+      try {
+        await sendAdmissionApprovalEmail(
+          applicant.email,
+          `${applicant.firstName} ${applicant.lastName}`,
+          matricNo
+        );
+      } catch (emailError) {
+        logger.error('Failed to send admission approval email:', emailError);
+        // Continue even if email fails
+      }
+    }

@@ -1,0 +1,339 @@
+import { Response } from 'express';
+import { z } from 'zod';
+import prisma from '../config/database';
+import logger from '../config/logger';
+import { AuthRequest } from '../middleware/auth';
+import { sendAdmissionApprovalEmail } from '../utils/email';
+const applicantSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email(),
+  phone: z.string(),
+  dateOfBirth: z.string().transform((val) => new Date(val)),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']),
+  address: z.string(),
+  previousSchool: z.string(),
+  gradeAverage: z.number().min(0).max(100),
+});
+
+const admissionDecisionSchema = z.object({
+  status: z.enum(['APPROVED', 'REJECTED']),
+  decisionReason: z.string().optional(),
+});
+
+export const createApplicant = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const data = applicantSchema.parse(req.body);
+
+    const existingApplicant = await prisma.applicant.findUnique({
+      where: { email: data.email },
+    });
+
+    if (existingApplicant) {
+      res.status(400).json({ error: 'Applicant with this email already exists' });
+      return;
+    }
+
+    // Generate username from first and last name
+    const baseUsername = `${data.firstName.toLowerCase().replace(/[^a-z]/g, '')}${data.lastName.toLowerCase().replace(/[^a-z]/g, '')}`;
+    let username = baseUsername;
+    let counter = 1;
+
+    // Check if username exists
+    while (await prisma.applicant.findUnique({ where: { username } })) {
+      username = `${baseUsername}${counter}`;
+      counter++;
+    }
+
+    const applicant = await prisma.applicant.create({
+      data: {
+        ...data,
+        username,
+        admissionDecision: {
+          create: {
+            status: 'PENDING',
+          },
+        },
+      },
+      include: {
+        admissionDecision: true,
+      },
+    });
+
+    logger.info(`New applicant created: ${applicant.email}`);
+    res.status(201).json(applicant);
+  } catch (error) {
+    logger.error('Create applicant error:', error);
+    res.status(500).json({ error: 'Failed to create applicant' });
+  }
+};
+
+export const getApplicants = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const status = req.query.status as string;
+    const search = req.query.search as string;
+
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (status) {
+      where.admissionDecision = { status };
+    }
+
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search } },
+        { lastName: { contains: search } },
+        { email: { contains: search } },
+      ];
+    }
+
+    const [applicants, total] = await Promise.all([
+      prisma.applicant.findMany({
+        where,
+        include: {
+          admissionDecision: true,
+          matricNumber: true,
+        },
+        skip,
+        take: limit,
+        orderBy: { applicationDate: 'desc' },
+      }),
+      prisma.applicant.count({ where }),
+    ]);
+
+    res.json({
+      data: applicants,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    logger.error('Get applicants error:', error);
+    res.status(500).json({ error: 'Failed to fetch applicants' });
+  }
+};
+
+export const getApplicantById = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const applicant = await prisma.applicant.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        admissionDecision: true,
+        matricNumber: {
+          include: {
+            student: true,
+          },
+        },
+      },
+    });
+
+    if (!applicant) {
+      res.status(404).json({ error: 'Applicant not found' });
+      return;
+    }
+
+    res.json(applicant);
+  } catch (error) {
+    logger.error('Get applicant error:', error);
+    res.status(500).json({ error: 'Failed to fetch applicant' });
+  }
+};
+
+export const updateApplicant = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const data = applicantSchema.partial().parse(req.body);
+
+    const applicant = await prisma.applicant.update({
+      where: { id: parseInt(id) },
+      data,
+      include: {
+        admissionDecision: true,
+      },
+    });
+
+    logger.info(`Applicant updated: ${applicant.id}`);
+    res.json(applicant);
+  } catch (error) {
+    logger.error('Update applicant error:', error);
+    res.status(500).json({ error: 'Failed to update applicant' });
+  }
+};
+
+export const deleteApplicant = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    await prisma.applicant.delete({
+      where: { id: parseInt(id) },
+    });
+
+    logger.info(`Applicant deleted: ${id}`);
+    res.json({ message: 'Applicant deleted successfully' });
+  } catch (error) {
+    logger.error('Delete applicant error:', error);
+    res.status(500).json({ error: 'Failed to delete applicant' });
+  }
+};
+
+export const makeAdmissionDecision = async (
+  req: AuthRequest,
+  res: Response
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const data = admissionDecisionSchema.parse(req.body);
+
+    const applicant = await prisma.applicant.findUnique({
+      where: { id: parseInt(id) },
+      include: { admissionDecision: true },
+    });
+
+    if (!applicant) {
+      res.status(404).json({ error: 'Applicant not found' });
+      return;
+    }
+
+    const decision = await prisma.admissionDecision.upsert({
+      where: { applicantId: parseInt(id) },
+      create: {
+        applicantId: parseInt(id),
+        status: data.status,
+        decisionDate: new Date(),
+        decisionReason: data.decisionReason,
+        decidedBy: req.user?.email,
+      },
+      update: {
+        status: data.status,
+        decisionDate: new Date(),
+        decisionReason: data.decisionReason,
+        decidedBy: req.user?.email,
+      },
+    });
+
+    // If approved, generate matric number
+    if (data.status === 'APPROVED') {
+      const existingMatricNumber = await prisma.matricNumber.findUnique({
+        where: { applicantId: parseInt(id) },
+      });
+
+      if (!existingMatricNumber) {
+        const year = new Date().getFullYear();
+        const count = await prisma.matricNumber.count();
+        const matricNo = `IMS/${year}/${String(count + 1).padStart(5, '0')}`;
+
+        await prisma.matricNumber.create({
+          data: {
+            applicantId: parseInt(id),
+            matricNo,
+          },
+        });
+      }
+    }
+
+    // Send approval email
+    try {
+      await sendAdmissionApprovalEmail(
+        applicant.email,
+        `${applicant.firstName} ${applicant.lastName}`,
+        matricNo
+      );
+    } catch (emailError) {
+      logger.error('Failed to send admission approval email:', emailError);
+      // Continue even if email fails
+    }
+
+    logger.info(`Admission decision made for applicant ${id}: ${data.status}`);
+    res.json(decision);
+  } catch (error) {
+    logger.error('Admission decision error:', error);
+    res.status(500).json({ error: 'Failed to make admission decision' });
+  }
+};
+
+export const convertToStudent = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { departmentId } = req.body;
+
+    if (!departmentId) {
+      res.status(400).json({ error: 'Department ID is required' });
+      return;
+    }
+
+    const applicant = await prisma.applicant.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+        admissionDecision: true,
+        matricNumber: true,
+      },
+    });
+
+    if (!applicant) {
+      res.status(404).json({ error: 'Applicant not found' });
+      return;
+    }
+
+    if (applicant.admissionDecision?.status !== 'APPROVED') {
+      res.status(400).json({ error: 'Applicant must be approved first' });
+      return;
+    }
+
+    if (!applicant.matricNumber) {
+      res.status(400).json({ error: 'Matric number not generated' });
+      return;
+    }
+
+    if (applicant.matricNumber.studentId) {
+      res.status(400).json({ error: 'Applicant already converted to student' });
+      return;
+    }
+
+    // Validate required fields
+    if (!applicant.dateOfBirth || !applicant.gender || !applicant.address) {
+      res.status(400).json({ 
+        error: 'Applicant must complete profile (dateOfBirth, gender, address) before conversion' 
+      });
+      return;
+    }
+
+    const student = await prisma.student.create({
+      data: {
+        username: applicant.matricNumber.matricNo, // Use matricNo as username for students
+        matricNo: applicant.matricNumber.matricNo,
+        firstName: applicant.firstName,
+        lastName: applicant.lastName,
+        email: applicant.email,
+        phone: applicant.phone,
+        password: applicant.password, // Transfer password from applicant
+        dateOfBirth: applicant.dateOfBirth,
+        gender: applicant.gender,
+        address: applicant.address,
+        departmentId: parseInt(departmentId),
+      },
+      include: {
+        department: true,
+      },
+    });
+
+    await prisma.matricNumber.update({
+      where: { id: applicant.matricNumber.id },
+      data: { studentId: student.id },
+    });
+
+    logger.info(`Applicant ${id} converted to student ${student.id}`);
+    res.status(201).json(student);
+  } catch (error) {
+    logger.error('Convert to student error:', error);
+    res.status(500).json({ error: 'Failed to convert applicant to student' });
+  }
+};
