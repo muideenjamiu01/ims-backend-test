@@ -44,9 +44,9 @@ const corsOptions = {
       process.env.APPLICANT_PORTAL_URL || 'http://localhost:3000',
       'http://localhost:3000',
       'http://localhost:3001',
-      'https://ims-frontend.vercel.app', // Add your production frontend URL
-      'https://ims-student-portal.vercel.app', // Add your production student portal URL
-      'https://ims-applicant-portal.vercel.app' // Add your production applicant portal URL
+      'https://institution-management-system.vercel.app', // Add your production frontend URL
+      'https://institution-management-system.vercel.app/student/login', // Add your production student portal URL
+      'https://institution-management-system.vercel.app/applicant/login' // Add your production applicant portal URL
     ];
     
     if (allowedOrigins.indexOf(origin) !== -1) {
