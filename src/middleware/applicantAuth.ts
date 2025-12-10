@@ -1,14 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import logger from '../config/logger';
-
-export interface ApplicantAuthRequest extends Request {
-  applicant?: {
-    id: number;
-    email: string;
-    username: string;
-  };
-}
+import { ApplicantAuthRequest } from '../types/express';
+import prisma from '../config/database';
 
 export const applicantAuth = async (
   req: ApplicantAuthRequest,
@@ -51,10 +45,28 @@ export const applicantAuth = async (
       username: string;
     };
 
-    req.applicant = decoded;
+    // Fetch the full applicant data from the database
+    const applicant = await prisma.applicant.findUnique({
+      where: { id: decoded.id },
+    });
+
+    if (!applicant) {
+      logger.warn('Applicant not found in database', {
+        applicantId: decoded.id,
+        path: req.path,
+        method: req.method,
+      });
+      res.status(401).json({
+        success: false,
+        message: 'Applicant not found. Please log in again.',
+      });
+      return;
+    }
+
+    req.applicant = applicant;
     logger.info('Applicant authenticated successfully', {
-      applicantId: decoded.id,
-      email: decoded.email,
+      applicantId: applicant.id,
+      email: applicant.email,
     });
     next();
   } catch (error: any) {

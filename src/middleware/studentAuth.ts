@@ -2,15 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../config/database';
 import logger from '../config/logger';
-
-export interface StudentAuthRequest extends Request {
-  student?: {
-    id: number;
-    email: string;
-    matricNo: string;
-    role: 'STUDENT';
-  };
-}
+import { StudentAuthRequest } from '../types/express';
 
 export const authenticateStudent = async (
   req: StudentAuthRequest,
@@ -46,12 +38,6 @@ export const authenticateStudent = async (
     // Verify student exists and is active
     const student = await prisma.student.findUnique({
       where: { id: decoded.id },
-      select: {
-        id: true,
-        email: true,
-        matricNo: true,
-        status: true,
-      },
     });
 
     if (!student) {
@@ -68,12 +54,7 @@ export const authenticateStudent = async (
       });
     }
 
-    req.student = {
-      id: student.id,
-      email: student.email,
-      matricNo: student.matricNo,
-      role: 'STUDENT',
-    };
+    req.student = student;
 
     next();
   } catch (error) {

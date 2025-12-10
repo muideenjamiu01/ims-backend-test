@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient, PaymentStatus, PaymentMethod, InvoiceType } from '@prisma/client';
-import { StudentAuthRequest } from '../middleware/studentAuth';
+import { StudentAuthRequest } from '../types/express';
 import axios from 'axios';
 import crypto from 'crypto';
 import { z } from 'zod';

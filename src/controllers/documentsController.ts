@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import prisma from '../config/database';
-import { StudentAuthRequest } from '../middleware/studentAuth';
+import { StudentAuthRequest } from '../types/express';
 import logger from '../config/logger';
 import {
   generateAdmissionLetter,

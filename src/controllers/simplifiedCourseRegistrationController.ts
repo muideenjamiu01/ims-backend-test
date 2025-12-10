@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { AuthRequest } from '../middleware/auth';
-import { StudentAuthRequest } from '../middleware/studentAuth';
+import { StudentAuthRequest } from '../types/express';
 import logger from '../config/logger';
 
 // Validation schemas using existing schema fields

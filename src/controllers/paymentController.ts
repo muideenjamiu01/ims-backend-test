@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../config/database';
 import logger from '../config/logger';
-import { StudentAuthRequest } from '../middleware/studentAuth';
+import { StudentAuthRequest } from '../types/express';
 import * as paystack from '../utils/paystack';
 import * as flutterwave from '../utils/flutterwave';
 import { toKobo, fromKobo, generatePaymentReference } from '../utils/helpers';

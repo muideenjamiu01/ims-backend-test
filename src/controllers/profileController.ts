@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import prisma from '../config/database';
-import { StudentAuthRequest } from '../middleware/studentAuth';
+import { StudentAuthRequest } from '../types/express';
 import logger from '../config/logger';
 
 // Validation schemas

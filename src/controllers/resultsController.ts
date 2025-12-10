@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../config/database';
-import { StudentAuthRequest } from '../middleware/studentAuth';
+import { StudentAuthRequest } from '../types/express';
 import logger from '../config/logger';
 import { calculateGPA } from '../utils/helpers';
 import { generateTranscript } from '../utils/pdfGenerator';

@@ -4,7 +4,7 @@ import jwt, { SignOptions } from 'jsonwebtoken';
 import { z } from 'zod';
 import prisma from '../config/database';
 import logger from '../config/logger';
-import { StudentAuthRequest } from '../middleware/studentAuth';
+import { StudentAuthRequest } from '../types/express';
 import { generateResetToken } from '../utils/helpers';
 import { sendPasswordResetEmail } from '../utils/email';
 

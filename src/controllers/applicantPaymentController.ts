@@ -3,7 +3,7 @@ import { z } from "zod";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "../config/database";
 import logger from "../config/logger";
-import { ApplicantAuthRequest } from "../middleware/applicantAuth";
+import { ApplicantAuthRequest } from "../types/express";
 import {
   initializePayment as paystackInitialize,
   verifyPayment as paystackVerify,
