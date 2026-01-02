@@ -95,16 +95,36 @@ export const getApplicants = async (req: AuthRequest, res: Response): Promise<vo
 
     if (search) {
       where.OR = [
-        { firstName: { contains: search } },
-        { lastName: { contains: search } },
-        { email: { contains: search } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
       ];
     }
 
     const [applicants, total] = await Promise.all([
       prisma.applicant.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          dateOfBirth: true,
+          gender: true,
+          address: true,
+          previousSchool: true,
+          gradeAverage: true,
+          programType: true,
+          departmentId: true,
+          programId: true,
+          applicationDate: true,
+          username: true,
+          acceptanceFeePaid: true,
+          applicationFeePaid: true,
+          passportPhoto: true,
+          academicDocument: true,
+          additionalDocument: true,
           admissionDecision: true,
           matricNumber: true,
           department: {
@@ -326,6 +346,7 @@ export const convertToStudent = async (req: AuthRequest, res: Response): Promise
         gender: applicant.gender,
         address: applicant.address,
         departmentId: parseInt(departmentId),
+        profilePicture: applicant.passportPhoto, // Transfer passport photo as profile picture
       },
       include: {
         department: true,

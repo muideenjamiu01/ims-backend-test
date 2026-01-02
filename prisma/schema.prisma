@@ -61,6 +61,9 @@ model Applicant {
   username           String             @unique
   acceptanceFeePaid  Boolean            @default(false)
   applicationFeePaid Boolean            @default(false)
+  passportPhoto      String?            // Path to passport photo (also used as profile picture)
+  academicDocument   String?            // Path to ND/HND/BSC result document
+  additionalDocument String?            // Path to any additional document
   admissionDecision  AdmissionDecision?
   payments           ApplicantPayment[]
   department         Department?        @relation(fields: [departmentId], references: [id])

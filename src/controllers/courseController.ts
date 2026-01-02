@@ -84,8 +84,8 @@ export const getCourses = async (req: AuthRequest, res: Response): Promise<void>
 
     if (search) {
       where.OR = [
-        { code: { contains: search } },
-        { title: { contains: search } },
+        { code: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search, mode: 'insensitive' } },
       ];
     }
 

@@ -17,6 +17,7 @@ import departmentRoutes from './routes/departmentRoutes';
 import studentPortalRoutes from './routes/studentPortalRoutes';
 import applicantAuthRoutes from './routes/applicantAuthRoutes';
 import applicantProfileRoutes from './routes/applicantProfileRoutes';
+import applicantUploadRoutes from './routes/applicantUploadRoutes';
 import webhookRoutes from './routes/webhookRoutes';
 import applicantPaymentRoutes from './routes/applicantPaymentRoutes';
 import studentPaymentRoutes from './routes/studentPaymentRoutes';
@@ -165,6 +166,7 @@ app.use('/api/course-registration', enhancedCourseRegistrationRoutes);
 // Applicant Portal Routes
 app.use('/api/applicant/auth', applicantAuthRoutes);
 app.use('/api/applicant', applicantProfileRoutes);
+app.use('/api/applicant/upload', applicantUploadRoutes);
 app.use('/api/applicant/payment', applicantPaymentRoutes);
 
 // Student Payment Routes

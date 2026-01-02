@@ -348,7 +348,20 @@ export const verifyPayment = async (req: ApplicantAuthRequest, res: Response) =>
       // Step 3: Get applicant with full details
       const fullApplicant = await prisma.applicant.findUnique({
         where: { id: payment.applicantId },
-        include: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          dateOfBirth: true,
+          gender: true,
+          address: true,
+          password: true,
+          departmentId: true,
+          programId: true,
+          programType: true,
+          passportPhoto: true,
           department: true,
           program: true,
           admissionDecision: true,
@@ -411,6 +424,7 @@ export const verifyPayment = async (req: ApplicantAuthRequest, res: Response) =>
             currentSessionId: activeSession?.id,
             status: "ACTIVE",
             acceptanceFeePaid: true,
+            profilePicture: fullApplicant.passportPhoto, // Transfer passport photo as profile picture
           },
         });
 

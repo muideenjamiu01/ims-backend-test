@@ -53,8 +53,8 @@ export const getDepartments = async (req: AuthRequest, res: Response): Promise<v
 
     if (search) {
       where.OR = [
-        { name: { contains: search } },
-        { code: { contains: search } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { code: { contains: search, mode: 'insensitive' } },
       ];
     }
 
