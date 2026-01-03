@@ -17,6 +17,13 @@ const createInvoiceSchema = z.object({
   dueDate: z.string().datetime().optional(),
   cardPayment: z.boolean().default(true),
   walletPayment: z.boolean().default(true),
+  // Payment Configuration
+  allowPartialPayment: z.boolean().default(true),
+  minimumPayment: z.number().positive().optional(), // Minimum amount for partial payment
+  maximumInstallments: z.number().int().positive().optional(), // Max number of installments
+  enforceDeadline: z.boolean().default(false),
+  lateFeePercentage: z.number().min(0).max(100).optional(), // Late fee as percentage
+  lateFeeAmount: z.number().positive().optional(), // Fixed late fee amount
 });
 
 const updateInvoiceSchema = z.object({
@@ -27,6 +34,13 @@ const updateInvoiceSchema = z.object({
   cardPayment: z.boolean().optional(),
   walletPayment: z.boolean().optional(),
   status: z.enum(['PENDING', 'PAID', 'PARTIALLY_PAID', 'FAILED']).optional(),
+  // Payment Configuration
+  allowPartialPayment: z.boolean().optional(),
+  minimumPayment: z.number().positive().optional(),
+  maximumInstallments: z.number().int().positive().optional(),
+  enforceDeadline: z.boolean().optional(),
+  lateFeePercentage: z.number().min(0).max(100).optional(),
+  lateFeeAmount: z.number().positive().optional(),
 });
 
 const paymentConfigSchema = z.object({
@@ -62,6 +76,12 @@ export const createInvoices = async (req: Request, res: Response) => {
       dueDate,
       cardPayment,
       walletPayment,
+      allowPartialPayment,
+      minimumPayment,
+      maximumInstallments,
+      enforceDeadline,
+      lateFeePercentage,
+      lateFeeAmount,
     } = validation.data;
 
     // Validate session exists
@@ -137,6 +157,13 @@ export const createInvoices = async (req: Request, res: Response) => {
             dueDate: dueDate ? new Date(dueDate) : null,
             cardPayment,
             walletPayment,
+            // Payment Configuration
+            allowPartialPayment,
+            minimumPayment: minimumPayment || null,
+            maximumInstallments: maximumInstallments || null,
+            enforceDeadline,
+            lateFeePercentage: lateFeePercentage || null,
+            lateFeeAmount: lateFeeAmount || null,
           },
         });
       })

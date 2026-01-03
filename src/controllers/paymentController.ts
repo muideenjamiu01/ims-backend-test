@@ -538,11 +538,11 @@ export const getPaymentHistory = async (req: StudentAuthRequest, res: Response) 
 
 export const downloadReceipt = async (req: StudentAuthRequest, res: Response) => {
   try {
-    const { reference } = req.params;
+    const { paymentId } = req.params;
     const studentId = req.student!.id;
 
     const payment = await prisma.payment.findUnique({
-      where: { reference },
+      where: { id: parseInt(paymentId) },
       include: {
         student: true,
         invoice: true,
@@ -570,14 +570,14 @@ export const downloadReceipt = async (req: StudentAuthRequest, res: Response) =>
       });
     }
 
-    const receiptPath = path.join(__dirname, '../../uploads/receipts', `${reference}.pdf`);
+    const receiptPath = path.join(__dirname, '../../uploads/receipts', `${payment.reference}.pdf`);
 
     // Generate if doesn't exist
     if (!require('fs').existsSync(receiptPath)) {
       ensureUploadDir();
       await generatePaymentReceipt(
         {
-          reference,
+          reference: payment.reference,
           studentName: `${payment.student.firstName} ${payment.student.lastName}`,
           matricNo: payment.student.matricNo,
           invoiceNo: payment.invoice.invoiceNo,
@@ -590,7 +590,7 @@ export const downloadReceipt = async (req: StudentAuthRequest, res: Response) =>
       );
     }
 
-    res.download(receiptPath, `receipt-${reference}.pdf`);
+    res.download(receiptPath, `receipt-${payment.reference}.pdf`);
   } catch (error) {
     logger.error('Download receipt error:', error);
     res.status(500).json({

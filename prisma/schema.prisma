@@ -69,6 +69,7 @@ model Applicant {
   department         Department?        @relation(fields: [departmentId], references: [id])
   program            Program?           @relation(fields: [programId], references: [id])
   matricNumber       MatricNumber?
+  student            Student[]          // One applicant can have one student record
 
   @@index([email])
   @@index([username])
@@ -153,6 +154,12 @@ model Student {
   resetTokenExpiry      DateTime?
   walletBalance         Float                  @default(0)
   username              String                 @unique
+  cgpa                  Float?                 // Cumulative GPA
+  // Fields to track applicant payment history
+  applicantId           Int?                   // Reference to original applicant
+  applicationFeeRef     String?                // Application fee payment reference
+  acceptanceFeeRef      String?                // Acceptance fee payment reference
+  applicationFeePaid    Boolean                @default(false)
   assignmentSubmissions AssignmentSubmission[]
   courseRegistrations   CourseRegistration[]
   invoices              Invoice[]
@@ -164,6 +171,7 @@ model Student {
   currentSession        Session?               @relation(fields: [currentSessionId], references: [id])
   department            Department             @relation(fields: [departmentId], references: [id])
   program               Program?               @relation(fields: [programId], references: [id])
+  applicant             Applicant?             @relation(fields: [applicantId], references: [id])
 
   @@index([matricNo])
   @@index([username])
@@ -171,6 +179,7 @@ model Student {
   @@index([departmentId])
   @@index([programId])
   @@index([currentSessionId])
+  @@index([applicantId])
   @@map("students")
 }
 
@@ -344,34 +353,59 @@ model Semester {
   @@map("semesters")
 }
 
+model PaymentType {
+  id          Int       @id @default(autoincrement())
+  name        String
+  code        String    @unique
+  description String?   @db.Text
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  invoices    Invoice[]
+
+  @@index([code])
+  @@index([isActive])
+  @@map("payment_types")
+}
+
 model Invoice {
-  id            Int           @id @default(autoincrement())
-  invoiceNo     String        @unique
-  studentId     Int
-  sessionId     Int
-  semesterId    Int?
-  type          InvoiceType
-  description   String?
-  amount        Float
-  amountPaid    Float         @default(0)
-  balance       Float
-  level         Int
-  status        PaymentStatus @default(PENDING)
-  dueDate       DateTime?
-  cardPayment   Boolean       @default(true)
-  walletPayment Boolean       @default(true)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  semester      Semester?     @relation(fields: [semesterId], references: [id])
-  session       Session       @relation(fields: [sessionId], references: [id])
-  student       Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  payments      Payment[]
+  id                   Int           @id @default(autoincrement())
+  invoiceNo            String        @unique
+  studentId            Int
+  sessionId            Int
+  semesterId           Int?
+  paymentTypeId        Int?          // New field for dynamic payment types
+  type                 InvoiceType   // Keep for backward compatibility
+  description          String?
+  amount               Float
+  amountPaid           Float         @default(0)
+  balance              Float
+  level                Int
+  status               PaymentStatus @default(PENDING)
+  dueDate              DateTime?
+  cardPayment          Boolean       @default(true)
+  walletPayment        Boolean       @default(true)
+  // Payment Configuration Fields
+  allowPartialPayment  Boolean       @default(true)  // Whether student can pay in installments
+  minimumPayment       Float?        // Minimum amount for partial payment (null = no minimum)
+  maximumInstallments  Int?          // Maximum number of installments allowed (null = unlimited)
+  enforceDeadline      Boolean       @default(false) // Whether to enforce payment deadline
+  lateFeePercentage    Float?        // Late fee percentage if deadline is passed (null = no late fee)
+  lateFeeAmount        Float?        // Fixed late fee amount (null = no late fee)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  paymentType          PaymentType?  @relation(fields: [paymentTypeId], references: [id])
+  semester             Semester?     @relation(fields: [semesterId], references: [id])
+  session              Session       @relation(fields: [sessionId], references: [id])
+  student              Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  payments             Payment[]
 
   @@index([invoiceNo])
   @@index([studentId])
   @@index([sessionId])
   @@index([status])
   @@index([semesterId], map: "invoices_semesterId_idx")
+  @@index([paymentTypeId])
   @@map("invoices")
 }
 

@@ -79,15 +79,15 @@ export const getStudents = async (req: AuthRequest, res: Response): Promise<void
 
     const where: any = {};
 
-    if (departmentId) {
+    if (departmentId && departmentId !== 'all') {
       where.departmentId = parseInt(departmentId);
     }
 
-    if (level) {
+    if (level && level !== 'all') {
       where.currentLevel = parseInt(level);
     }
 
-    if (status) {
+    if (status && status !== 'all') {
       where.status = status;
     }
 
@@ -142,9 +142,24 @@ export const getStudentById = async (req: AuthRequest, res: Response): Promise<v
       where: { id: parseInt(id) },
       include: {
         department: true,
+        program: true,
+        currentSession: true,
+        applicant: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            academicDocument: true,
+            additionalDocument: true,
+          },
+        },
         courseRegistrations: {
           include: {
             course: true,
+            semesterRecord: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
         scores: {
@@ -154,6 +169,28 @@ export const getStudentById = async (req: AuthRequest, res: Response): Promise<v
                 course: true,
               },
             },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        invoices: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
+        payments: {
+          orderBy: {
+            paidAt: 'desc',
+          },
+          take: 10,
+        },
+        _count: {
+          select: {
+            courseRegistrations: true,
+            scores: true,
+            invoices: true,
+            payments: true,
           },
         },
       },

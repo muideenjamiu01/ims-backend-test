@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import logger from '../config/logger';
 import { AuthRequest } from '../middleware/auth';
 import { sendAdmissionApprovalEmail } from '../utils/email';
+import { generateAutomaticInvoices } from '../services/studentInvoiceService';
 
 const applicantSchema = z.object({
   firstName: z.string().min(1),
@@ -333,6 +334,28 @@ export const convertToStudent = async (req: AuthRequest, res: Response): Promise
       return;
     }
 
+    // Determine student level based on program type
+    let currentLevel = 100; // Default
+    if (applicant.programType) {
+      switch (applicant.programType) {
+        case 'ND':
+        case 'BSC':
+          currentLevel = 100;
+          break;
+        case 'HND':
+          currentLevel = 300;
+          break;
+        case 'MSC':
+          currentLevel = 500;
+          break;
+        case 'PHD':
+          currentLevel = 700;
+          break;
+        default:
+          currentLevel = 100;
+      }
+    }
+
     const student = await prisma.student.create({
       data: {
         username: applicant.matricNumber.matricNo, // Use matricNo as username for students
@@ -347,6 +370,11 @@ export const convertToStudent = async (req: AuthRequest, res: Response): Promise
         address: applicant.address,
         departmentId: parseInt(departmentId),
         profilePicture: applicant.passportPhoto, // Transfer passport photo as profile picture
+        currentLevel,
+        // Link to applicant payment records
+        applicantId: applicant.id,
+        applicationFeeRef: applicant.id.toString(), // Use applicant ID as reference
+        applicationFeePaid: true, // They must have paid to reach this stage
       },
       include: {
         department: true,
@@ -357,6 +385,94 @@ export const convertToStudent = async (req: AuthRequest, res: Response): Promise
       where: { id: applicant.matricNumber.id },
       data: { studentId: student.id },
     });
+
+    // Get current academic session for invoice generation
+    const currentSession = await prisma.session.findFirst({
+      where: { isActive: true },
+      orderBy: { startDate: 'desc' },
+    });
+
+    if (currentSession) {
+      try {
+        // 1. Fetch applicant's payment records
+        const applicantPayments = await prisma.applicantPayment.findMany({
+          where: {
+            applicantId: applicant.id,
+            status: 'PAID',
+          },
+        });
+
+        // 2. Create historical invoices and payment records for applicant payments
+        const historicalInvoices = [];
+        
+        for (const payment of applicantPayments) {
+          // Determine invoice details based on payment type
+          let invoiceNo = '';
+          let description = '';
+          
+          switch (payment.type) {
+            case 'APPLICATION_FEE':
+              invoiceNo = `APP-${student.matricNo}`;
+              description = 'Application Fee (Paid as Applicant)';
+              break;
+            case 'ACCEPTANCE_FEE':
+              invoiceNo = `ACC-${student.matricNo}`;
+              description = 'Acceptance Fee (Paid as Applicant)';
+              break;
+            default:
+              invoiceNo = `OTHER-${student.matricNo}-${payment.id}`;
+              description = `${payment.type} (Paid as Applicant)`;
+          }
+
+          // Create invoice record
+          const invoice = await prisma.invoice.create({
+            data: {
+              invoiceNo,
+              studentId: student.id,
+              sessionId: currentSession.id,
+              type: 'OTHER',
+              description,
+              amount: payment.amount,
+              amountPaid: payment.amount,
+              balance: 0,
+              level: currentLevel,
+              status: 'PAID',
+            },
+          });
+
+          // Create payment record linked to this invoice
+          await prisma.payment.create({
+            data: {
+              studentId: student.id,
+              invoiceId: invoice.id,
+              amount: payment.amount,
+              method: payment.method,
+              reference: payment.reference,
+              status: 'PAID',
+              paidAt: payment.paidAt || payment.createdAt,
+            },
+          });
+
+          historicalInvoices.push(invoice);
+          logger.info(`Migrated ${payment.type} payment for student ${student.matricNo}`);
+        }
+
+        // 3. Generate automatic invoices for future payments (School fees, etc.)
+        const newInvoices = await generateAutomaticInvoices({
+          studentId: student.id,
+          sessionId: currentSession.id,
+          level: currentLevel,
+          programType: applicant.programType || 'UNDERGRADUATE',
+        });
+
+        logger.info(`Created ${historicalInvoices.length} historical and ${newInvoices.length} new invoices for student ${student.matricNo}`);
+      } catch (invoiceError) {
+        logger.error('Error generating invoices:', invoiceError);
+        // Don't fail the conversion if invoice generation fails
+      }
+    } else {
+      logger.warn(`No current session found for invoice generation for student ${student.matricNo}`);
+    }
 
     logger.info(`Applicant ${id} converted to student ${student.id}`);
     res.status(201).json(student);

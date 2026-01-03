@@ -23,6 +23,8 @@ import applicantPaymentRoutes from './routes/applicantPaymentRoutes';
 import studentPaymentRoutes from './routes/studentPaymentRoutes';
 import adminPaymentRoutes from './routes/adminPaymentRoutes';
 import enhancedCourseRegistrationRoutes from './routes/enhancedCourseRegistrationRoutes';
+import sessionRoutes from './routes/sessionRoutes';
+import paymentTypeRoutes from './routes/paymentTypeRoutes';
 
 dotenv.config();
 
@@ -174,6 +176,12 @@ app.use('/api/student/payments', studentPaymentRoutes);
 
 // Admin Payment Routes
 app.use('/api/admin/payments', adminPaymentRoutes);
+
+// Admin Session Routes
+app.use('/api/admin/sessions', sessionRoutes);
+
+// Admin Payment Type Routes
+app.use('/api/admin/payment-types', paymentTypeRoutes);
 
 // Webhook Routes (payment gateways)
 app.use('/api/webhooks', webhookRoutes);
