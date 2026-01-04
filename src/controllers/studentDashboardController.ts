@@ -1,12 +1,13 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import { StudentAuthRequest } from '../types/express';
 
 const prisma = new PrismaClient();
 
 // Get dashboard overview with stats
-export const getOverview = async (req: Request, res: Response) => {
+export const getOverview = async (req: StudentAuthRequest, res: Response) => {
   try {
-    const studentId = (req as any).user.id;
+    const studentId = req.student!.id;
 
     // Get student details with related data
     const student = await prisma.student.findUnique({
@@ -32,31 +33,42 @@ export const getOverview = async (req: Request, res: Response) => {
       },
     });
 
-    // Get registered courses count for current semester
-    const registeredCoursesCount = currentSession?.semesters[0]
-      ? await prisma.courseRegistration.count({
-          where: {
-            studentId,
-            semesterId: currentSession.semesters[0].id,
-          },
-        })
-      : 0;
+    // Get registered courses count for current semester from CourseRegistrationBatch
+    let registeredCoursesCount = 0;
+    if (currentSession?.semesters[0]) {
+      const batches = await prisma.courseRegistrationBatch.findMany({
+        where: {
+          studentId,
+          semesterId: currentSession.semesters[0].id,
+        },
+        include: {
+          courses: true,
+        },
+      });
+      
+      // Count total courses across all batches
+      registeredCoursesCount = batches.reduce((total, batch) => total + batch.courses.length, 0);
+    }
 
     // Get pending assignments count
+    const registeredCourseIds = currentSession?.semesters[0]
+      ? (
+          await prisma.courseRegistrationBatchItem.findMany({
+            where: {
+              batch: {
+                studentId,
+                semesterId: currentSession.semesters[0].id,
+              },
+            },
+            select: { courseId: true },
+          })
+        ).map((item) => item.courseId)
+      : [];
+
     const pendingAssignments = await prisma.assignment.count({
       where: {
         courseId: {
-          in: (
-            await prisma.courseRegistration.findMany({
-              where: {
-                studentId,
-                semesterRecord: {
-                  isActive: true,
-                },
-              },
-              select: { courseId: true },
-            })
-          ).map((r) => r.courseId),
+          in: registeredCourseIds,
         },
         dueDate: {
           gte: new Date(),
@@ -77,31 +89,23 @@ export const getOverview = async (req: Request, res: Response) => {
 
     const currentGPA = latestResult?.gradePoint || 0;
 
-    // Get wallet balance and pending payments
+    // Get wallet balance and unpaid invoices
     const walletBalance = student.walletBalance || 0;
     
-    const pendingInvoices = await prisma.invoice.count({
+    const unpaidInvoices = await prisma.invoice.count({
       where: {
         studentId,
         status: 'PENDING',
       },
     });
 
-    // Get total pending amount
-    const pendingInvoicesData = await prisma.invoice.findMany({
+    // Get unread notifications count
+    const unreadNotifications = await prisma.notification.count({
       where: {
         studentId,
-        status: 'PENDING',
-      },
-      select: {
-        amount: true,
+        isRead: false,
       },
     });
-
-    const pendingPaymentsAmount = pendingInvoicesData.reduce(
-      (sum, invoice) => sum + invoice.amount,
-      0
-    );
 
     // Calculate CGPA (all semesters)
     const allResults = await prisma.result.findMany({
@@ -116,40 +120,47 @@ export const getOverview = async (req: Request, res: Response) => {
 
     res.json({
       student: {
-        id: student.id,
+        matricNo: student.matricNo,
         firstName: student.firstName,
         lastName: student.lastName,
-        matricNo: student.matricNo,
         email: student.email,
-        phone: student.phone,
+        level: student.currentLevel,
+        status: student.status,
+        profilePicture: student.profilePicture,
         department: student.department?.name,
         program: student.program?.name,
-        currentLevel: student.currentLevel,
-        profilePicture: student.profilePicture,
       },
-      stats: {
-        totalCourses: registeredCoursesCount,
-        pendingAssignments,
-        currentGPA: parseFloat(currentGPA.toFixed(2)),
-        cgpa: parseFloat(cgpa.toFixed(2)),
-        walletBalance,
-        pendingPayments: pendingInvoices,
-        pendingPaymentsAmount,
-      },
-      currentSession: currentSession
+      session: currentSession
         ? {
-            id: currentSession.id,
             name: currentSession.name,
+            startDate: currentSession.startDate,
+            endDate: currentSession.endDate,
             isActive: currentSession.isActive,
-            currentSemester: currentSession.semesters[0]
-              ? {
-                  id: currentSession.semesters[0].id,
-                  type: currentSession.semesters[0].type,
-                  isActive: currentSession.semesters[0].isActive,
-                }
-              : null,
           }
         : null,
+      currentSemester: currentSession?.semesters[0]
+        ? {
+            id: currentSession.semesters[0].id,
+            type: currentSession.semesters[0].type,
+            startDate: currentSession.semesters[0].startDate,
+            endDate: currentSession.semesters[0].endDate,
+          }
+        : null,
+      stats: {
+        cgpa: parseFloat(cgpa.toFixed(2)),
+        totalCreditsEarned: 0, // TODO: Calculate from completed courses
+        registeredCourses: registeredCoursesCount,
+        pendingAssignments,
+        unpaidInvoices,
+        unreadNotifications,
+        walletBalance,
+      },
+      recentResults: [], // TODO: Fetch recent results
+      alerts: {
+        unpaidInvoices: [], // TODO: Fetch unpaid invoice details
+        hasPendingAssignments: pendingAssignments > 0,
+        hasUnreadNotifications: unreadNotifications > 0,
+      },
     });
   } catch (error: any) {
     console.error('Error fetching dashboard overview:', error);
@@ -158,9 +169,9 @@ export const getOverview = async (req: Request, res: Response) => {
 };
 
 // Get notifications
-export const getNotifications = async (req: Request, res: Response) => {
+export const getNotifications = async (req: StudentAuthRequest, res: Response) => {
   try {
-    const studentId = (req as any).user.id;
+    const studentId = req.student!.id;
     const { page = 1, limit = 10, type } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -196,9 +207,9 @@ export const getNotifications = async (req: Request, res: Response) => {
 };
 
 // Mark notification as read
-export const markNotificationRead = async (req: Request, res: Response) => {
+export const markNotificationRead = async (req: StudentAuthRequest, res: Response) => {
   try {
-    const studentId = (req as any).user.id;
+    const studentId = req.student!.id;
     const { id } = req.params;
     const notificationId = parseInt(id);
 
@@ -229,9 +240,9 @@ export const markNotificationRead = async (req: Request, res: Response) => {
 };
 
 // Mark all notifications as read
-export const markAllNotificationsRead = async (req: Request, res: Response) => {
+export const markAllNotificationsRead = async (req: StudentAuthRequest, res: Response) => {
   try {
-    const studentId = (req as any).user.id;
+    const studentId = req.student!.id;
 
     await prisma.notification.updateMany({
       where: {
@@ -249,9 +260,9 @@ export const markAllNotificationsRead = async (req: Request, res: Response) => {
 };
 
 // Get alerts (urgent notifications)
-export const getAlerts = async (req: Request, res: Response) => {
+export const getAlerts = async (req: StudentAuthRequest, res: Response) => {
   try {
-    const studentId = (req as any).user.id;
+    const studentId = req.student!.id;
 
     // Get pending payments
     const pendingInvoices = await prisma.invoice.findMany({
@@ -346,9 +357,9 @@ export const getAlerts = async (req: Request, res: Response) => {
 };
 
 // Get recent activities
-export const getActivities = async (req: Request, res: Response) => {
+export const getActivities = async (req: StudentAuthRequest, res: Response) => {
   try {
-    const studentId = (req as any).user.id;
+    const studentId = req.student!.id;
     const { limit = 10 } = req.query;
 
     // Get recent course registrations

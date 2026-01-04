@@ -6,6 +6,12 @@ import {
   updateSession,
   deleteSession,
   getActiveSession,
+  createSemester,
+  getSessionSemesters,
+  getSemester,
+  updateSemester,
+  deleteSemester,
+  getActiveSemester,
 } from '../controllers/sessionController';
 import { authenticate } from '../middleware/auth';
 
@@ -21,5 +27,13 @@ router.get('/active', getActiveSession);
 router.get('/:id', getSession);
 router.patch('/:id', updateSession);
 router.delete('/:id', deleteSession);
+
+// Semester routes
+router.post('/:sessionId/semesters', createSemester);
+router.get('/:sessionId/semesters', getSessionSemesters);
+router.get('/semesters/active', getActiveSemester);
+router.get('/semesters/:id', getSemester);
+router.patch('/semesters/:id', updateSemester);
+router.delete('/semesters/:id', deleteSemester);
 
 export default router;

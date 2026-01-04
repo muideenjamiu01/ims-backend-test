@@ -729,17 +729,24 @@ export const bulkInvoiceOperations = async (req: Request, res: Response) => {
 // Get sessions for invoice creation
 export const getSessions = async (req: Request, res: Response) => {
   try {
+    const { includeSemesters } = req.query;
+    
     const sessions = await prisma.session.findMany({
       orderBy: {
         startDate: 'desc',
       },
-      select: {
-        id: true,
-        name: true,
-        startDate: true,
-        endDate: true,
-        isActive: true,
-      },
+      include: includeSemesters === 'true' ? {
+        semesters: {
+          select: {
+            id: true,
+            type: true,
+            isActive: true,
+            status: true,
+            startDate: true,
+            endDate: true,
+          },
+        },
+      } : undefined,
     });
 
     res.json({
