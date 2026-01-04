@@ -93,6 +93,104 @@ async function seedDepartments() {
   console.log('✓ Departments seeded');
 }
 
+async function seedSessions() {
+  console.log('Seeding sessions and semesters...');
+  
+  const currentYear = new Date().getFullYear();
+  const lastYear = currentYear - 1;
+  const nextYear = currentYear + 1;
+  
+  // Previous session (Completed)
+  const previousSession = await prisma.session.create({
+    data: {
+      name: `${lastYear}/${currentYear}`,
+      startDate: new Date(`${lastYear}-09-01`),
+      endDate: new Date(`${currentYear}-08-31`),
+      isActive: false,
+      status: 'COMPLETED',
+      semesters: {
+        create: [
+          {
+            type: 'FIRST',
+            startDate: new Date(`${lastYear}-09-01`),
+            endDate: new Date(`${lastYear}-12-31`),
+            isActive: false,
+            status: 'COMPLETED',
+          },
+          {
+            type: 'SECOND',
+            startDate: new Date(`${currentYear}-01-01`),
+            endDate: new Date(`${currentYear}-08-31`),
+            isActive: false,
+            status: 'COMPLETED',
+          },
+        ],
+      },
+    },
+  });
+
+  // Current session (Active)
+  const currentSession = await prisma.session.create({
+    data: {
+      name: `${currentYear}/${nextYear}`,
+      startDate: new Date(`${currentYear}-09-01`),
+      endDate: new Date(`${nextYear}-08-31`),
+      isActive: true,
+      status: 'ACTIVE',
+      semesters: {
+        create: [
+          {
+            type: 'FIRST',
+            startDate: new Date(`${currentYear}-09-01`),
+            endDate: new Date(`${currentYear}-12-31`),
+            isActive: true,
+            status: 'ACTIVE',
+          },
+          {
+            type: 'SECOND',
+            startDate: new Date(`${nextYear}-01-01`),
+            endDate: new Date(`${nextYear}-08-31`),
+            isActive: false,
+            status: 'UPCOMING',
+          },
+        ],
+      },
+    },
+  });
+
+  // Next session (Upcoming)
+  const nextSession = await prisma.session.create({
+    data: {
+      name: `${nextYear}/${nextYear + 1}`,
+      startDate: new Date(`${nextYear}-09-01`),
+      endDate: new Date(`${nextYear + 1}-08-31`),
+      isActive: false,
+      status: 'UPCOMING',
+      semesters: {
+        create: [
+          {
+            type: 'FIRST',
+            startDate: new Date(`${nextYear}-09-01`),
+            endDate: new Date(`${nextYear}-12-31`),
+            isActive: false,
+            status: 'UPCOMING',
+          },
+          {
+            type: 'SECOND',
+            startDate: new Date(`${nextYear + 1}-01-01`),
+            endDate: new Date(`${nextYear + 1}-08-31`),
+            isActive: false,
+            status: 'UPCOMING',
+          },
+        ],
+      },
+    },
+  });
+
+  console.log(`✓ Sessions seeded: ${previousSession.name}, ${currentSession.name}, ${nextSession.name}`);
+  console.log(`✓ Total: 3 sessions with 6 semesters`);
+}
+
 async function seedPrograms() {
   console.log('Seeding programs...');
   const depts = await prisma.department.findMany();
@@ -427,6 +525,7 @@ async function main() {
     // Seed in order
     await seedUsers();
     await seedDepartments();
+    await seedSessions();
     await seedPrograms();
     await seedApplicants();
     await seedStudents();
@@ -438,6 +537,8 @@ async function main() {
     const stats = {
       users: await prisma.user.count(),
       departments: await prisma.department.count(),
+      sessions: await prisma.session.count(),
+      semesters: await prisma.semester.count(),
       applicants: await prisma.applicant.count(),
       students: await prisma.student.count(),
       courses: await prisma.course.count(),
@@ -450,6 +551,8 @@ async function main() {
     console.log('📊 Statistics:');
     console.log(`   Users: ${stats.users}`);
     console.log(`   Departments: ${stats.departments}`);
+    console.log(`   Sessions: ${stats.sessions}`);
+    console.log(`   Semesters: ${stats.semesters}`);
     console.log(`   Applicants: ${stats.applicants}`);
     console.log(`   Students: ${stats.students}`);
     console.log(`   Courses: ${stats.courses}`);

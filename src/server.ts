@@ -23,8 +23,12 @@ import applicantPaymentRoutes from './routes/applicantPaymentRoutes';
 import studentPaymentRoutes from './routes/studentPaymentRoutes';
 import adminPaymentRoutes from './routes/adminPaymentRoutes';
 import enhancedCourseRegistrationRoutes from './routes/enhancedCourseRegistrationRoutes';
+import modernCourseRegistrationRoutes from './routes/modernCourseRegistrationRoutes';
 import sessionRoutes from './routes/sessionRoutes';
 import paymentTypeRoutes from './routes/paymentTypeRoutes';
+import studentCourseRoutes from './routes/studentCourseRoutes';
+import adminCourseRoutes from './routes/adminCourseRoutes';
+import studentSessionRoutes from './routes/studentSessionRoutes';
 
 dotenv.config();
 
@@ -32,8 +36,10 @@ const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
 // Trust proxy - Required when running behind reverse proxy (nginx, load balancer, etc.)
-// This enables Express to trust X-Forwarded-* headers for proper client IP detection
-app.set('trust proxy', true);
+// Only enable in production to avoid rate limit warnings in development
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
  
 // Security middleware
 app.use(helmet({
@@ -159,11 +165,20 @@ app.use('/api/courses', courseRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/departments', departmentRoutes);
 
-// Student Portal Routes
+// Student Course Registration Routes (V2) - Must be before studentPortalRoutes
+app.use('/api/student/courses', studentCourseRoutes);
+
+// Student Session Routes (read-only)
+app.use('/api/student/sessions', studentSessionRoutes);
+
+// Student Portal Routes (General - less specific, should be last)
 app.use('/api/student', studentPortalRoutes);
 
 // Enhanced Course Registration Routes
 app.use('/api/course-registration', enhancedCourseRegistrationRoutes);
+
+// Modern Course Registration Routes (with payment validation)
+app.use('/api/modern-course-registration', modernCourseRegistrationRoutes);
 
 // Applicant Portal Routes
 app.use('/api/applicant/auth', applicantAuthRoutes);
@@ -176,6 +191,9 @@ app.use('/api/student/payments', studentPaymentRoutes);
 
 // Admin Payment Routes
 app.use('/api/admin/payments', adminPaymentRoutes);
+
+// Admin Course Registration Routes (V2)
+app.use('/api/admin/course-registrations', adminCourseRoutes);
 
 // Admin Session Routes
 app.use('/api/admin/sessions', sessionRoutes);

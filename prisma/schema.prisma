@@ -168,6 +168,7 @@ model Student {
   payments              Payment[]
   results               Result[]
   scores                Score[]
+  courseRegistrationBatches CourseRegistrationBatch[]
   currentSession        Session?               @relation(fields: [currentSessionId], references: [id])
   department            Department             @relation(fields: [departmentId], references: [id])
   program               Program?               @relation(fields: [programId], references: [id])
@@ -200,6 +201,7 @@ model Course {
   department          Department           @relation(fields: [departmentId], references: [id])
   exams               Exam[]
   results             Result[]
+  courseRegistrationBatchItems CourseRegistrationBatchItem[]
 
   @@index([code])
   @@index([departmentId])
@@ -254,6 +256,48 @@ model RegistrationWindow {
   @@index([semesterId])
   @@index([isActive])
   @@map("registration_windows")
+}
+
+model CourseRegistrationBatch {
+  id           Int                         @id @default(autoincrement())
+  studentId    Int
+  sessionId    Int
+  semesterId   Int
+  level        Int
+  status       CourseRegistrationStatus    @default(PENDING)
+  totalUnits   Int
+  comments     String?                     @db.Text
+  submittedAt  DateTime                    @default(now())
+  approvedAt   DateTime?
+  approvedBy   String?
+  createdAt    DateTime                    @default(now())
+  updatedAt    DateTime                    @updatedAt
+  student      Student                     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  session      Session                     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  semester     Semester                    @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+  courses      CourseRegistrationBatchItem[]
+
+  @@unique([studentId, sessionId, semesterId, level])
+  @@index([studentId])
+  @@index([sessionId])
+  @@index([semesterId])
+  @@index([status])
+  @@index([level])
+  @@map("course_registration_batches")
+}
+
+model CourseRegistrationBatchItem {
+  id        Int                      @id @default(autoincrement())
+  batchId   Int
+  courseId  Int
+  createdAt DateTime                 @default(now())
+  batch     CourseRegistrationBatch  @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  course    Course                   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, courseId])
+  @@index([batchId])
+  @@index([courseId])
+  @@map("course_registration_batch_items")
 }
 
 model Exam {
@@ -318,6 +362,7 @@ model Session {
   startDate           DateTime
   endDate             DateTime
   isActive            Boolean               @default(false)
+  status              SessionStatus         @default(UPCOMING)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   assignments         Assignment[]
@@ -327,8 +372,10 @@ model Session {
   students            Student[]
   courseRegistrations CourseRegistration[]
   registrationWindows RegistrationWindow[]
+  courseRegistrationBatches CourseRegistrationBatch[]
 
   @@index([isActive])
+  @@index([status])
   @@map("sessions")
 }
 
@@ -339,6 +386,7 @@ model Semester {
   startDate           DateTime
   endDate             DateTime
   isActive            Boolean               @default(false)
+  status              SemesterStatus        @default(UPCOMING)
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
   assignments         Assignment[]
@@ -346,10 +394,12 @@ model Semester {
   invoices            Invoice[]
   registrationWindows RegistrationWindow[]
   session             Session               @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  courseRegistrationBatches CourseRegistrationBatch[]
 
   @@unique([sessionId, type])
   @@index([sessionId])
   @@index([isActive])
+  @@index([status])
   @@map("semesters")
 }
 
@@ -606,7 +656,28 @@ enum RegistrationStatus {
   DROPPED
 }
 
+enum CourseRegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+}
+
 enum ApplicantPaymentType {
   APPLICATION_FEE
   ACCEPTANCE_FEE
+}
+
+enum SessionStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum SemesterStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+  ARCHIVED
 }
