@@ -16,6 +16,17 @@ router.get(
 );
 
 /**
+ * Get eligible carry over courses
+ * GET /api/student/courses/carry-over
+ * Returns failed courses eligible for retake (200-500 level only)
+ */
+router.get(
+  '/carry-over',
+  authenticateStudent,
+  studentCourseController.getCarryOverCourses
+);
+
+/**
  * Validate course registration before submission
  * POST /api/student/courses/validate
  * Body: { courseIds, sessionId, semesterId, level }

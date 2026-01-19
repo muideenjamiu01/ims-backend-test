@@ -91,9 +91,31 @@ export const getAllRegistrations = async (req: AuthRequest, res: Response) => {
       prisma.courseRegistrationBatch.count({ where }),
     ]);
 
+    // Fetch carry over courses for each batch
+    const batchesWithCarryOver = await Promise.all(
+      batches.map(async (batch) => {
+        const carryOverCourses = await prisma.courseRegistration.findMany({
+          where: {
+            studentId: batch.studentId,
+            sessionId: batch.sessionId,
+            semesterId: batch.semesterId,
+            type: 'CARRY_OVER',
+          },
+          include: {
+            course: true,
+          },
+        });
+
+        return {
+          ...batch,
+          carryOverCourses,
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: batches,
+      data: batchesWithCarryOver,
       pagination: {
         page,
         limit,

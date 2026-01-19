@@ -4,29 +4,41 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 const TOTAL_APPLICANTS = 300;
-const TOTAL_STUDENTS = 500;
-const TOTAL_COURSES = 100;
+const TOTAL_STUDENTS = 1500; // Will create 1500 students distributed across departments and levels
+const TOTAL_COURSES = 273; // Comprehensive courses for all departments (accurate count)
 const TOTAL_EXAMS = 50;
 
+// Nigerian first names for more realistic data
 const firstNames = [
+  'Adewale', 'Oluwaseun', 'Chinedu', 'Ngozi', 'Yusuf', 'Fatima', 'Emeka', 'Aisha',
+  'Tunde', 'Chioma', 'Ibrahim', 'Zainab', 'Babatunde', 'Blessing', 'Musa', 'Grace',
+  'Kehinde', 'Amina', 'Adeola', 'Halima', 'Chukwudi', 'Hadiza', 'Olusegun', 'Khadija',
+  'Adebayo', 'Hauwa', 'Ikechukwu', 'Maryam', 'Segun', 'Salamatu', 'Chidera', 'Hassana',
+  'Adekunle', 'Rahma', 'Obinna', 'Safiya', 'Kunle', 'Rashida', 'Nnamdi', 'Rukayya',
+  'Femi', 'Asmau', 'Chima', 'Habiba', 'Tayo', 'Sa\'ada', 'Uzoma', 'Jamila',
+  'Bola', 'Nana', 'Uche', 'Hajara', 'Wale', 'Bilkisu', 'Ebuka', 'Rabia',
+  'Deji', 'Zahra', 'Ifeanyi', 'Sadiya', 'Lanre', 'Sumaiya', 'Chibuzor', 'Amira',
+  'Biodun', 'Nafisa', 'Chukwuma', 'Hanifa', 'Tosin', 'Lubaba', 'Chinedum', 'Asiya',
+  'Niyi', 'Ruqayya', 'Damilare', 'Kaltum', 'Chukwuemeka', 'Zulaikha', 'Kayode', 'Hafsah',
+  // Additional names for variety
   'John', 'Jane', 'Michael', 'Emily', 'David', 'Sarah', 'Daniel', 'Emma',
-  'James', 'Olivia', 'Robert', 'Sophia', 'William', 'Isabella', 'Thomas',
-  'Mia', 'Charles', 'Charlotte', 'Joseph', 'Amelia', 'Christopher', 'Harper',
-  'Matthew', 'Evelyn', 'Anthony', 'Abigail', 'Mark', 'Elizabeth', 'Donald',
-  'Sofia', 'Steven', 'Avery', 'Paul', 'Ella', 'Andrew', 'Scarlett', 'Joshua',
-  'Grace', 'Kenneth', 'Chloe', 'Kevin', 'Victoria', 'Brian', 'Madison',
-  'George', 'Luna', 'Edward', 'Penelope', 'Ronald', 'Layla'
+  'James', 'Olivia', 'Robert', 'Sophia', 'William', 'Isabella', 'Thomas', 'Mia'
 ];
 
+// Nigerian last names for more realistic data
 const lastNames = [
-  'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller',
-  'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez', 'Gonzalez',
-  'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin',
-  'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark',
-  'Ramirez', 'Lewis', 'Robinson', 'Walker', 'Young', 'Allen', 'King',
-  'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores', 'Green',
-  'Adams', 'Nelson', 'Baker', 'Hall', 'Rivera', 'Campbell', 'Mitchell',
-  'Carter', 'Roberts'
+  'Adeyemi', 'Okonkwo', 'Bello', 'Abdullahi', 'Okafor', 'Musa', 'Nwankwo', 'Aliyu',
+  'Eze', 'Usman', 'Okoro', 'Ahmed', 'Ogunleye', 'Mohammed', 'Chikezie', 'Yusuf',
+  'Ojo', 'Suleiman', 'Nwosu', 'Ibrahim', 'Adeleke', 'Garba', 'Ugwu', 'Abubakar',
+  'Adebayo', 'Shehu', 'Chukwu', 'Idris', 'Akinyemi', 'Ismail', 'Obi', 'Mustapha',
+  'Fashola', 'Kabir', 'Emeka', 'Lawal', 'Olaniyan', 'Hassan', 'Chukwuma', 'Sanusi',
+  'Adegoke', 'Jibril', 'Okeke', 'Nuhu', 'Oladipo', 'Zakari', 'Udoh', 'Hamza',
+  'Akinola', 'Nasir', 'Chidi', 'Adekunle', 'Sani', 'Nnamdi', 'Umar', 'Babajide',
+  'Adamu', 'Ikenna', 'Isa', 'Oluwole', 'Haruna', 'Afolabi', 'Tanko', 'Yahaya',
+  'Olayinka', 'Muhammed', 'Chigozie', 'Sadiq', 'Ogundele', 'Aminu', 'Uchenna', 'Bashir',
+  'Adeshina', 'Rabiu', 'Ogunleye', 'Danjuma', 'Adeyinka', 'Lukman', 'Ifeanyi', 'Kabiru',
+  // Additional names for variety
+  'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis'
 ];
 
 const departments = [
@@ -42,13 +54,387 @@ const departments = [
   { name: 'Biology', code: 'BIO', description: 'Department of Biology' },
 ];
 
-const courseTemplates = [
-  { prefix: 'Introduction to', credits: 3, level: 100 },
-  { prefix: 'Advanced', credits: 4, level: 300 },
-  { prefix: 'Fundamentals of', credits: 3, level: 100 },
-  { prefix: 'Applied', credits: 4, level: 200 },
-  { prefix: 'Theory of', credits: 3, level: 300 },
-  { prefix: 'Practical', credits: 2, level: 200 },
+// Comprehensive course data for Nigerian universities - 338 courses total
+const comprehensiveCoursesByDepartment: Record<string, Array<{code: string; title: string; credits: number; level: number; semester: number}>> = {
+  'Computer Science': [
+    // 100 Level
+    { code: 'CSC101', title: 'Introduction to Computer Science', credits: 3, level: 100, semester: 1 },
+    { code: 'CSC102', title: 'Introduction to Problem Solving', credits: 2, level: 100, semester: 1 },
+    { code: 'CSC103', title: 'Computer Programming I', credits: 3, level: 100, semester: 2 },
+    { code: 'CSC104', title: 'Discrete Mathematics', credits: 3, level: 100, semester: 2 },
+    { code: 'MTH101', title: 'General Mathematics I', credits: 3, level: 100, semester: 1 },
+    { code: 'MTH102', title: 'General Mathematics II', credits: 3, level: 100, semester: 2 },
+    { code: 'PHY101', title: 'General Physics I', credits: 3, level: 100, semester: 1 },
+    { code: 'PHY102', title: 'General Physics II', credits: 3, level: 100, semester: 2 },
+    // 200 Level
+    { code: 'CSC201', title: 'Computer Programming II', credits: 3, level: 200, semester: 1 },
+    { code: 'CSC202', title: 'Data Structures', credits: 3, level: 200, semester: 1 },
+    { code: 'CSC203', title: 'Digital Logic Design', credits: 3, level: 200, semester: 2 },
+    { code: 'CSC204', title: 'Computer Architecture', credits: 3, level: 200, semester: 2 },
+    { code: 'CSC205', title: 'Object Oriented Programming', credits: 3, level: 200, semester: 1 },
+    { code: 'CSC206', title: 'Algorithm Analysis', credits: 3, level: 200, semester: 2 },
+    { code: 'MTH201', title: 'Mathematical Methods I', credits: 3, level: 200, semester: 1 },
+    { code: 'MTH202', title: 'Elementary Differential Equations', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'CSC301', title: 'Operating Systems', credits: 3, level: 300, semester: 1 },
+    { code: 'CSC302', title: 'Database Management Systems', credits: 3, level: 300, semester: 1 },
+    { code: 'CSC303', title: 'Software Engineering', credits: 3, level: 300, semester: 2 },
+    { code: 'CSC304', title: 'Computer Networks', credits: 3, level: 300, semester: 2 },
+    { code: 'CSC305', title: 'Web Technologies', credits: 3, level: 300, semester: 1 },
+    { code: 'CSC306', title: 'Artificial Intelligence', credits: 3, level: 300, semester: 2 },
+    { code: 'CSC307', title: 'Theory of Computation', credits: 3, level: 300, semester: 1 },
+    { code: 'CSC308', title: 'Numerical Analysis', credits: 3, level: 300, semester: 2 },
+    // 400 Level
+    { code: 'CSC401', title: 'Compiler Construction', credits: 3, level: 400, semester: 1 },
+    { code: 'CSC402', title: 'Computer Graphics', credits: 3, level: 400, semester: 1 },
+    { code: 'CSC403', title: 'Distributed Systems', credits: 3, level: 400, semester: 2 },
+    { code: 'CSC404', title: 'Information Security', credits: 3, level: 400, semester: 2 },
+    { code: 'CSC405', title: 'Mobile Application Development', credits: 3, level: 400, semester: 1 },
+    { code: 'CSC406', title: 'Cloud Computing', credits: 3, level: 400, semester: 2 },
+    { code: 'CSC499', title: 'Final Year Project', credits: 6, level: 400, semester: 2 },
+  ],
+  'Electrical Engineering': [
+    // 100 Level
+    { code: 'EEE101', title: 'Introduction to Electrical Engineering', credits: 3, level: 100, semester: 1 },
+    { code: 'EEE102', title: 'Engineering Drawing', credits: 2, level: 100, semester: 1 },
+    { code: 'EEE103', title: 'Workshop Practice', credits: 2, level: 100, semester: 2 },
+    { code: 'EMTH101', title: 'General Mathematics I', credits: 3, level: 100, semester: 1 },
+    { code: 'EMTH102', title: 'General Mathematics II', credits: 3, level: 100, semester: 2 },
+    { code: 'EPHY101', title: 'General Physics I', credits: 3, level: 100, semester: 1 },
+    { code: 'EPHY102', title: 'General Physics II', credits: 3, level: 100, semester: 2 },
+    { code: 'ECHE101', title: 'General Chemistry I', credits: 3, level: 100, semester: 1 },
+    // 200 Level
+    { code: 'EEE201', title: 'Electric Circuit Theory I', credits: 3, level: 200, semester: 1 },
+    { code: 'EEE202', title: 'Electric Circuit Theory II', credits: 3, level: 200, semester: 2 },
+    { code: 'EEE203', title: 'Electromagnetic Fields', credits: 3, level: 200, semester: 1 },
+    { code: 'EEE204', title: 'Electronics I', credits: 3, level: 200, semester: 2 },
+    { code: 'EEE205', title: 'Engineering Mathematics III', credits: 3, level: 200, semester: 1 },
+    { code: 'EEE206', title: 'Digital Electronics', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'EEE301', title: 'Electrical Machines I', credits: 3, level: 300, semester: 1 },
+    { code: 'EEE302', title: 'Electrical Machines II', credits: 3, level: 300, semester: 2 },
+    { code: 'EEE303', title: 'Power Systems Analysis', credits: 3, level: 300, semester: 1 },
+    { code: 'EEE304', title: 'Control Systems', credits: 3, level: 300, semester: 2 },
+    { code: 'EEE305', title: 'Signal Processing', credits: 3, level: 300, semester: 1 },
+    { code: 'EEE306', title: 'Microprocessors', credits: 3, level: 300, semester: 2 },
+    { code: 'EEE307', title: 'Communication Systems', credits: 3, level: 300, semester: 1 },
+    // 400 Level
+    { code: 'EEE401', title: 'Power Electronics', credits: 3, level: 400, semester: 1 },
+    { code: 'EEE402', title: 'Renewable Energy Systems', credits: 3, level: 400, semester: 2 },
+    { code: 'EEE403', title: 'Advanced Control Systems', credits: 3, level: 400, semester: 1 },
+    { code: 'EEE404', title: 'Power System Protection', credits: 3, level: 400, semester: 2 },
+    { code: 'EEE405', title: 'Electrical Installation', credits: 3, level: 400, semester: 1 },
+    // 500 Level
+    { code: 'EEE501', title: 'High Voltage Engineering', credits: 3, level: 500, semester: 1 },
+    { code: 'EEE502', title: 'Power System Stability', credits: 3, level: 500, semester: 2 },
+    { code: 'EEE503', title: 'Smart Grid Technology', credits: 3, level: 500, semester: 1 },
+    { code: 'EEE504', title: 'Electric Power Quality', credits: 3, level: 500, semester: 2 },
+    { code: 'EEE599', title: 'Final Year Project', credits: 6, level: 500, semester: 2 },
+  ],
+  'Mechanical Engineering': [
+    // 100 Level
+    { code: 'MEE101', title: 'Introduction to Mechanical Engineering', credits: 3, level: 100, semester: 1 },
+    { code: 'MEE102', title: 'Engineering Drawing and CAD', credits: 3, level: 100, semester: 1 },
+    { code: 'MEE103', title: 'Workshop Technology', credits: 2, level: 100, semester: 2 },
+    { code: 'MMTH101', title: 'General Mathematics I', credits: 3, level: 100, semester: 1 },
+    { code: 'MMTH102', title: 'General Mathematics II', credits: 3, level: 100, semester: 2 },
+    { code: 'MPHY101', title: 'General Physics I', credits: 3, level: 100, semester: 1 },
+    { code: 'MPHY102', title: 'General Physics II', credits: 3, level: 100, semester: 2 },
+    // 200 Level
+    { code: 'MEE201', title: 'Engineering Mechanics (Statics)', credits: 3, level: 200, semester: 1 },
+    { code: 'MEE202', title: 'Engineering Mechanics (Dynamics)', credits: 3, level: 200, semester: 2 },
+    { code: 'MEE203', title: 'Strength of Materials', credits: 3, level: 200, semester: 1 },
+    { code: 'MEE204', title: 'Thermodynamics I', credits: 3, level: 200, semester: 2 },
+    { code: 'MEE205', title: 'Manufacturing Processes', credits: 3, level: 200, semester: 1 },
+    { code: 'MEE206', title: 'Materials Science', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'MEE301', title: 'Fluid Mechanics', credits: 3, level: 300, semester: 1 },
+    { code: 'MEE302', title: 'Heat Transfer', credits: 3, level: 300, semester: 2 },
+    { code: 'MEE303', title: 'Machine Design I', credits: 3, level: 300, semester: 1 },
+    { code: 'MEE304', title: 'Machine Design II', credits: 3, level: 300, semester: 2 },
+    { code: 'MEE305', title: 'Mechanics of Machines', credits: 3, level: 300, semester: 1 },
+    { code: 'MEE306', title: 'Engineering Metrology', credits: 2, level: 300, semester: 2 },
+    // 400 Level
+    { code: 'MEE401', title: 'Mechanical Vibrations', credits: 3, level: 400, semester: 1 },
+    { code: 'MEE402', title: 'Internal Combustion Engines', credits: 3, level: 400, semester: 2 },
+    { code: 'MEE403', title: 'Refrigeration and Air Conditioning', credits: 3, level: 400, semester: 1 },
+    { code: 'MEE404', title: 'Industrial Engineering', credits: 3, level: 400, semester: 2 },
+    { code: 'MEE405', title: 'Finite Element Analysis', credits: 3, level: 400, semester: 1 },
+    // 500 Level
+    { code: 'MEE501', title: 'Advanced Manufacturing Systems', credits: 3, level: 500, semester: 1 },
+    { code: 'MEE502', title: 'Robotics and Automation', credits: 3, level: 500, semester: 2 },
+    { code: 'MEE503', title: 'Computational Fluid Dynamics', credits: 3, level: 500, semester: 1 },
+    { code: 'MEE504', title: 'Engineering Management', credits: 3, level: 500, semester: 2 },
+    { code: 'MEE599', title: 'Final Year Project', credits: 6, level: 500, semester: 2 },
+  ],
+  'Civil Engineering': [
+    // 100 Level
+    { code: 'CVE101', title: 'Introduction to Civil Engineering', credits: 3, level: 100, semester: 1 },
+    { code: 'CVE102', title: 'Technical Drawing', credits: 2, level: 100, semester: 1 },
+    { code: 'CVE103', title: 'Building Construction', credits: 3, level: 100, semester: 2 },
+    { code: 'CMTH101', title: 'General Mathematics I', credits: 3, level: 100, semester: 1 },
+    { code: 'CMTH102', title: 'General Mathematics II', credits: 3, level: 100, semester: 2 },
+    { code: 'CPHY101', title: 'General Physics I', credits: 3, level: 100, semester: 1 },
+    { code: 'CPHY102', title: 'General Physics II', credits: 3, level: 100, semester: 2 },
+    // 200 Level
+    { code: 'CVE201', title: 'Surveying I', credits: 3, level: 200, semester: 1 },
+    { code: 'CVE202', title: 'Surveying II', credits: 3, level: 200, semester: 2 },
+    { code: 'CVE203', title: 'Strength of Materials', credits: 3, level: 200, semester: 1 },
+    { code: 'CVE204', title: 'Engineering Geology', credits: 3, level: 200, semester: 2 },
+    { code: 'CVE205', title: 'Fluid Mechanics', credits: 3, level: 200, semester: 1 },
+    { code: 'CVE206', title: 'Structural Analysis I', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'CVE301', title: 'Structural Analysis II', credits: 3, level: 300, semester: 1 },
+    { code: 'CVE302', title: 'Reinforced Concrete Design', credits: 3, level: 300, semester: 2 },
+    { code: 'CVE303', title: 'Soil Mechanics', credits: 3, level: 300, semester: 1 },
+    { code: 'CVE304', title: 'Foundation Engineering', credits: 3, level: 300, semester: 2 },
+    { code: 'CVE305', title: 'Highway Engineering', credits: 3, level: 300, semester: 1 },
+    { code: 'CVE306', title: 'Water Resources Engineering', credits: 3, level: 300, semester: 2 },
+    // 400 Level
+    { code: 'CVE401', title: 'Steel Structures', credits: 3, level: 400, semester: 1 },
+    { code: 'CVE402', title: 'Bridge Engineering', credits: 3, level: 400, semester: 2 },
+    { code: 'CVE403', title: 'Environmental Engineering', credits: 3, level: 400, semester: 1 },
+    { code: 'CVE404', title: 'Construction Management', credits: 3, level: 400, semester: 2 },
+    { code: 'CVE405', title: 'Quantity Surveying', credits: 3, level: 400, semester: 1 },
+    // 500 Level
+    { code: 'CVE501', title: 'Advanced Structural Design', credits: 3, level: 500, semester: 1 },
+    { code: 'CVE502', title: 'Earthquake Engineering', credits: 3, level: 500, semester: 2 },
+    { code: 'CVE503', title: 'Pavement Design', credits: 3, level: 500, semester: 1 },
+    { code: 'CVE504', title: 'Project Management', credits: 3, level: 500, semester: 2 },
+    { code: 'CVE599', title: 'Final Year Project', credits: 6, level: 500, semester: 2 },
+  ],
+  'Business Administration': [
+    // 100 Level
+    { code: 'BUS101', title: 'Introduction to Business', credits: 3, level: 100, semester: 1 },
+    { code: 'BUS102', title: 'Principles of Management', credits: 3, level: 100, semester: 1 },
+    { code: 'BUS103', title: 'Business Mathematics', credits: 3, level: 100, semester: 2 },
+    { code: 'BACC101', title: 'Financial Accounting I', credits: 3, level: 100, semester: 1 },
+    { code: 'BACC102', title: 'Financial Accounting II', credits: 3, level: 100, semester: 2 },
+    { code: 'BECO101', title: 'Principles of Economics I', credits: 3, level: 100, semester: 1 },
+    { code: 'BECO102', title: 'Principles of Economics II', credits: 3, level: 100, semester: 2 },
+    // 200 Level
+    { code: 'BUS201', title: 'Business Communication', credits: 3, level: 200, semester: 1 },
+    { code: 'BUS202', title: 'Organizational Behavior', credits: 3, level: 200, semester: 2 },
+    { code: 'BUS203', title: 'Business Statistics', credits: 3, level: 200, semester: 1 },
+    { code: 'BUS204', title: 'Marketing Management', credits: 3, level: 200, semester: 2 },
+    { code: 'BUS205', title: 'Cost Accounting', credits: 3, level: 200, semester: 1 },
+    { code: 'BUS206', title: 'Human Resource Management', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'BUS301', title: 'Financial Management', credits: 3, level: 300, semester: 1 },
+    { code: 'BUS302', title: 'Strategic Management', credits: 3, level: 300, semester: 2 },
+    { code: 'BUS303', title: 'Operations Management', credits: 3, level: 300, semester: 1 },
+    { code: 'BUS304', title: 'Business Law', credits: 3, level: 300, semester: 2 },
+    { code: 'BUS305', title: 'Research Methods', credits: 3, level: 300, semester: 1 },
+    { code: 'BUS306', title: 'Entrepreneurship', credits: 3, level: 300, semester: 2 },
+    // 400 Level
+    { code: 'BUS401', title: 'International Business', credits: 3, level: 400, semester: 1 },
+    { code: 'BUS402', title: 'Business Policy', credits: 3, level: 400, semester: 2 },
+    { code: 'BUS403', title: 'Investment Management', credits: 3, level: 400, semester: 1 },
+    { code: 'BUS404', title: 'E-Business', credits: 3, level: 400, semester: 2 },
+    { code: 'BUS405', title: 'Leadership and Change Management', credits: 3, level: 400, semester: 1 },
+    { code: 'BUS499', title: 'Research Project', credits: 6, level: 400, semester: 2 },
+  ],
+  'Economics': [
+    // 100 Level
+    { code: 'ECO101', title: 'Principles of Economics I', credits: 3, level: 100, semester: 1 },
+    { code: 'ECO102', title: 'Principles of Economics II', credits: 3, level: 100, semester: 2 },
+    { code: 'ECO103', title: 'Introduction to Statistics', credits: 3, level: 100, semester: 1 },
+    { code: 'EMTH101', title: 'General Mathematics I', credits: 3, level: 100, semester: 1 },
+    { code: 'EMTH102', title: 'General Mathematics II', credits: 3, level: 100, semester: 2 },
+    { code: 'EACC101', title: 'Financial Accounting I', credits: 3, level: 100, semester: 1 },
+    // 200 Level
+    { code: 'ECO201', title: 'Microeconomic Theory I', credits: 3, level: 200, semester: 1 },
+    { code: 'ECO202', title: 'Macroeconomic Theory I', credits: 3, level: 200, semester: 2 },
+    { code: 'ECO203', title: 'Development Economics I', credits: 3, level: 200, semester: 1 },
+    { code: 'ECO204', title: 'Quantitative Economics', credits: 3, level: 200, semester: 2 },
+    { code: 'ECO205', title: 'Statistical Methods', credits: 3, level: 200, semester: 1 },
+    { code: 'ECO206', title: 'Nigerian Economy', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'ECO301', title: 'Microeconomic Theory II', credits: 3, level: 300, semester: 1 },
+    { code: 'ECO302', title: 'Macroeconomic Theory II', credits: 3, level: 300, semester: 2 },
+    { code: 'ECO303', title: 'Econometrics I', credits: 3, level: 300, semester: 1 },
+    { code: 'ECO304', title: 'Econometrics II', credits: 3, level: 300, semester: 2 },
+    { code: 'ECO305', title: 'Public Finance', credits: 3, level: 300, semester: 1 },
+    { code: 'ECO306', title: 'International Economics', credits: 3, level: 300, semester: 2 },
+    { code: 'ECO307', title: 'Monetary Economics', credits: 3, level: 300, semester: 1 },
+    // 400 Level
+    { code: 'ECO401', title: 'Development Economics II', credits: 3, level: 400, semester: 1 },
+    { code: 'ECO402', title: 'Labour Economics', credits: 3, level: 400, semester: 2 },
+    { code: 'ECO403', title: 'Industrial Economics', credits: 3, level: 400, semester: 1 },
+    { code: 'ECO404', title: 'Agricultural Economics', credits: 3, level: 400, semester: 2 },
+    { code: 'ECO405', title: 'Economic Planning', credits: 3, level: 400, semester: 1 },
+    { code: 'ECO499', title: 'Research Project', credits: 6, level: 400, semester: 2 },
+  ],
+  'Mathematics': [
+    // 100 Level
+    { code: 'MMTH101', title: 'General Mathematics I', credits: 3, level: 100, semester: 1 },
+    { code: 'MMTH102', title: 'General Mathematics II', credits: 3, level: 100, semester: 2 },
+    { code: 'MMTH103', title: 'Trigonometry', credits: 3, level: 100, semester: 1 },
+    { code: 'MMTH104', title: 'Vectors and Geometry', credits: 3, level: 100, semester: 2 },
+    { code: 'MCSC101', title: 'Introduction to Computer Science', credits: 3, level: 100, semester: 1 },
+    { code: 'MPHY101', title: 'General Physics I', credits: 3, level: 100, semester: 1 },
+    // 200 Level
+    { code: 'MMTH201', title: 'Mathematical Methods I', credits: 3, level: 200, semester: 1 },
+    { code: 'MMTH202', title: 'Elementary Differential Equations', credits: 3, level: 200, semester: 2 },
+    { code: 'MMTH203', title: 'Linear Algebra I', credits: 3, level: 200, semester: 1 },
+    { code: 'MMTH204', title: 'Linear Algebra II', credits: 3, level: 200, semester: 2 },
+    { code: 'MMTH205', title: 'Real Analysis I', credits: 3, level: 200, semester: 1 },
+    { code: 'MMTH206', title: 'Sets, Logic and Algebra', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'MMTH301', title: 'Abstract Algebra I', credits: 3, level: 300, semester: 1 },
+    { code: 'MMTH302', title: 'Abstract Algebra II', credits: 3, level: 300, semester: 2 },
+    { code: 'MMTH303', title: 'Complex Analysis I', credits: 3, level: 300, semester: 1 },
+    { code: 'MMTH304', title: 'Numerical Analysis I', credits: 3, level: 300, semester: 2 },
+    { code: 'MMTH305', title: 'Topology', credits: 3, level: 300, semester: 1 },
+    { code: 'MMTH306', title: 'Probability Theory', credits: 3, level: 300, semester: 2 },
+    { code: 'MMTH307', title: 'Mathematical Statistics', credits: 3, level: 300, semester: 1 },
+    // 400 Level
+    { code: 'MMTH401', title: 'Functional Analysis', credits: 3, level: 400, semester: 1 },
+    { code: 'MMTH402', title: 'Partial Differential Equations', credits: 3, level: 400, semester: 2 },
+    { code: 'MMTH403', title: 'Optimization Theory', credits: 3, level: 400, semester: 1 },
+    { code: 'MMTH404', title: 'Mathematical Modeling', credits: 3, level: 400, semester: 2 },
+    { code: 'MMTH405', title: 'Differential Geometry', credits: 3, level: 400, semester: 1 },
+    { code: 'MMTH499', title: 'Research Project', credits: 6, level: 400, semester: 2 },
+  ],
+  'Physics': [
+    // 100 Level
+    { code: 'PPHY101', title: 'General Physics I (Mechanics)', credits: 3, level: 100, semester: 1 },
+    { code: 'PPHY102', title: 'General Physics II (Electricity & Magnetism)', credits: 3, level: 100, semester: 2 },
+    { code: 'PPHY103', title: 'Experimental Physics I', credits: 2, level: 100, semester: 1 },
+    { code: 'PPHY104', title: 'Experimental Physics II', credits: 2, level: 100, semester: 2 },
+    { code: 'PMTH101', title: 'General Mathematics I', credits: 3, level: 100, semester: 1 },
+    { code: 'PMTH102', title: 'General Mathematics II', credits: 3, level: 100, semester: 2 },
+    { code: 'PCHE101', title: 'General Chemistry I', credits: 3, level: 100, semester: 1 },
+    // 200 Level
+    { code: 'PPHY201', title: 'Thermal Physics', credits: 3, level: 200, semester: 1 },
+    { code: 'PPHY202', title: 'Modern Physics', credits: 3, level: 200, semester: 2 },
+    { code: 'PPHY203', title: 'Waves and Optics', credits: 3, level: 200, semester: 1 },
+    { code: 'PPHY204', title: 'Electromagnetism', credits: 3, level: 200, semester: 2 },
+    { code: 'PPHY205', title: 'Mathematical Methods for Physics I', credits: 3, level: 200, semester: 1 },
+    { code: 'PPHY206', title: 'Electronics', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'PPHY301', title: 'Quantum Mechanics I', credits: 3, level: 300, semester: 1 },
+    { code: 'PPHY302', title: 'Statistical Mechanics', credits: 3, level: 300, semester: 2 },
+    { code: 'PPHY303', title: 'Classical Mechanics', credits: 3, level: 300, semester: 1 },
+    { code: 'PPHY304', title: 'Solid State Physics', credits: 3, level: 300, semester: 2 },
+    { code: 'PPHY305', title: 'Atomic and Molecular Physics', credits: 3, level: 300, semester: 1 },
+    { code: 'PPHY306', title: 'Nuclear Physics', credits: 3, level: 300, semester: 2 },
+    { code: 'PPHY307', title: 'Computational Physics', credits: 3, level: 300, semester: 1 },
+    // 400 Level
+    { code: 'PPHY401', title: 'Quantum Mechanics II', credits: 3, level: 400, semester: 1 },
+    { code: 'PPHY402', title: 'Particle Physics', credits: 3, level: 400, semester: 2 },
+    { code: 'PPHY403', title: 'Astrophysics', credits: 3, level: 400, semester: 1 },
+    { code: 'PPHY404', title: 'Condensed Matter Physics', credits: 3, level: 400, semester: 2 },
+    { code: 'PPHY405', title: 'Plasma Physics', credits: 3, level: 400, semester: 1 },
+    { code: 'PPHY499', title: 'Research Project', credits: 6, level: 400, semester: 2 },
+  ],
+  'Chemistry': [
+    // 100 Level
+    { code: 'CCHE101', title: 'General Chemistry I', credits: 3, level: 100, semester: 1 },
+    { code: 'CCHE102', title: 'General Chemistry II', credits: 3, level: 100, semester: 2 },
+    { code: 'CCHE103', title: 'Practical Chemistry I', credits: 2, level: 100, semester: 1 },
+    { code: 'CCHE104', title: 'Practical Chemistry II', credits: 2, level: 100, semester: 2 },
+    { code: 'CMTH101', title: 'General Mathematics I', credits: 3, level: 100, semester: 1 },
+    { code: 'CMTH102', title: 'General Mathematics II', credits: 3, level: 100, semester: 2 },
+    { code: 'CPHY101', title: 'General Physics I', credits: 3, level: 100, semester: 1 },
+    // 200 Level
+    { code: 'CCHE201', title: 'Organic Chemistry I', credits: 3, level: 200, semester: 1 },
+    { code: 'CCHE202', title: 'Organic Chemistry II', credits: 3, level: 200, semester: 2 },
+    { code: 'CCHE203', title: 'Inorganic Chemistry I', credits: 3, level: 200, semester: 1 },
+    { code: 'CCHE204', title: 'Inorganic Chemistry II', credits: 3, level: 200, semester: 2 },
+    { code: 'CCHE205', title: 'Physical Chemistry I', credits: 3, level: 200, semester: 1 },
+    { code: 'CCHE206', title: 'Analytical Chemistry', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'CCHE301', title: 'Organic Chemistry III', credits: 3, level: 300, semester: 1 },
+    { code: 'CCHE302', title: 'Physical Chemistry II', credits: 3, level: 300, semester: 2 },
+    { code: 'CCHE303', title: 'Quantum Chemistry', credits: 3, level: 300, semester: 1 },
+    { code: 'CCHE304', title: 'Industrial Chemistry', credits: 3, level: 300, semester: 2 },
+    { code: 'CCHE305', title: 'Environmental Chemistry', credits: 3, level: 300, semester: 1 },
+    { code: 'CCHE306', title: 'Spectroscopy', credits: 3, level: 300, semester: 2 },
+    { code: 'CCHE307', title: 'Chemical Kinetics', credits: 3, level: 300, semester: 1 },
+    // 400 Level
+    { code: 'CCHE401', title: 'Advanced Organic Chemistry', credits: 3, level: 400, semester: 1 },
+    { code: 'CCHE402', title: 'Polymer Chemistry', credits: 3, level: 400, semester: 2 },
+    { code: 'CCHE403', title: 'Biochemistry', credits: 3, level: 400, semester: 1 },
+    { code: 'CCHE404', title: 'Pharmaceutical Chemistry', credits: 3, level: 400, semester: 2 },
+    { code: 'CCHE405', title: 'Medicinal Chemistry', credits: 3, level: 400, semester: 1 },
+    { code: 'CCHE499', title: 'Research Project', credits: 6, level: 400, semester: 2 },
+  ],
+  'Biology': [
+    // 100 Level
+    { code: 'BBIO101', title: 'General Biology I', credits: 3, level: 100, semester: 1 },
+    { code: 'BBIO102', title: 'General Biology II', credits: 3, level: 100, semester: 2 },
+    { code: 'BBIO103', title: 'Practical Biology I', credits: 2, level: 100, semester: 1 },
+    { code: 'BBIO104', title: 'Practical Biology II', credits: 2, level: 100, semester: 2 },
+    { code: 'BCHE101', title: 'General Chemistry I', credits: 3, level: 100, semester: 1 },
+    { code: 'BCHE102', title: 'General Chemistry II', credits: 3, level: 100, semester: 2 },
+    { code: 'BPHY101', title: 'General Physics I', credits: 3, level: 100, semester: 1 },
+    // 200 Level
+    { code: 'BBIO201', title: 'Cell Biology', credits: 3, level: 200, semester: 1 },
+    { code: 'BBIO202', title: 'Genetics', credits: 3, level: 200, semester: 2 },
+    { code: 'BBIO203', title: 'Plant Physiology', credits: 3, level: 200, semester: 1 },
+    { code: 'BBIO204', title: 'Animal Physiology', credits: 3, level: 200, semester: 2 },
+    { code: 'BBIO205', title: 'Ecology', credits: 3, level: 200, semester: 1 },
+    { code: 'BBIO206', title: 'Microbiology', credits: 3, level: 200, semester: 2 },
+    // 300 Level
+    { code: 'BBIO301', title: 'Molecular Biology', credits: 3, level: 300, semester: 1 },
+    { code: 'BBIO302', title: 'Biochemistry', credits: 3, level: 300, semester: 2 },
+    { code: 'BBIO303', title: 'Developmental Biology', credits: 3, level: 300, semester: 1 },
+    { code: 'BBIO304', title: 'Evolution', credits: 3, level: 300, semester: 2 },
+    { code: 'BBIO305', title: 'Immunology', credits: 3, level: 300, semester: 1 },
+    { code: 'BBIO306', title: 'Biostatistics', credits: 3, level: 300, semester: 2 },
+    { code: 'BBIO307', title: 'Parasitology', credits: 3, level: 300, semester: 1 },
+    // 400 Level
+    { code: 'BBIO401', title: 'Biotechnology', credits: 3, level: 400, semester: 1 },
+    { code: 'BBIO402', title: 'Bioinformatics', credits: 3, level: 400, semester: 2 },
+    { code: 'BBIO403', title: 'Conservation Biology', credits: 3, level: 400, semester: 1 },
+    { code: 'BBIO404', title: 'Marine Biology', credits: 3, level: 400, semester: 2 },
+    { code: 'BBIO405', title: 'Medical Microbiology', credits: 3, level: 400, semester: 1 },
+    { code: 'BBIO499', title: 'Research Project', credits: 6, level: 400, semester: 2 },
+  ],
+};
+
+// Elective courses available to all departments (GST, Inter-departmental electives)
+const electiveCourses = [
+  // 100 Level Electives
+  { code: 'GST101', title: 'Use of English I', credits: 2, level: 100, semester: 1, department: 'Computer Science' },
+  { code: 'GST102', title: 'Use of English II', credits: 2, level: 100, semester: 2, department: 'Computer Science' },
+  { code: 'GST103', title: 'Nigerian Peoples and Culture', credits: 2, level: 100, semester: 1, department: 'Computer Science' },
+  { code: 'GST104', title: 'History and Philosophy of Science', credits: 2, level: 100, semester: 2, department: 'Computer Science' },
+  { code: 'BIO101', title: 'General Biology', credits: 2, level: 100, semester: 1, department: 'Computer Science' },
+  { code: 'STA101', title: 'Introduction to Statistics', credits: 2, level: 100, semester: 2, department: 'Computer Science' },
+  { code: 'CHM101', title: 'General Chemistry', credits: 2, level: 100, semester: 1, department: 'Computer Science' },
+  
+  // 200 Level Electives
+  { code: 'GST201', title: 'Entrepreneurship Studies', credits: 2, level: 200, semester: 1, department: 'Computer Science' },
+  { code: 'GST202', title: 'Leadership and Interpersonal Skills', credits: 2, level: 200, semester: 2, department: 'Computer Science' },
+  { code: 'STA201', title: 'Probability and Statistics', credits: 2, level: 200, semester: 1, department: 'Computer Science' },
+  { code: 'MGT201', title: 'Introduction to Management', credits: 2, level: 200, semester: 2, department: 'Computer Science' },
+  
+  // 300 Level Electives
+  { code: 'GST301', title: 'Research Methodology', credits: 2, level: 300, semester: 1, department: 'Computer Science' },
+  { code: 'ENT301', title: 'Business Planning and Development', credits: 2, level: 300, semester: 2, department: 'Computer Science' },
+  { code: 'PSY301', title: 'Organizational Psychology', credits: 2, level: 300, semester: 1, department: 'Computer Science' },
+  
+  // 400 Level Electives
+  { code: 'GST401', title: 'Technical Report Writing', credits: 2, level: 400, semester: 1, department: 'Computer Science' },
+  { code: 'LAW401', title: 'Intellectual Property Law', credits: 2, level: 400, semester: 2, department: 'Computer Science' },
+  { code: 'MKT401', title: 'Digital Marketing', credits: 2, level: 400, semester: 1, department: 'Computer Science' },
+  
+  // Engineering Electives (for all engineering departments)
+  { code: 'ENG201', title: 'Engineering Economics', credits: 2, level: 200, semester: 1, department: 'Electrical Engineering' },
+  { code: 'ENG301', title: 'Engineering Management', credits: 2, level: 300, semester: 2, department: 'Electrical Engineering' },
+  { code: 'ENG401', title: 'Professional Ethics in Engineering', credits: 2, level: 400, semester: 1, department: 'Mechanical Engineering' },
+  
+  // Business Electives
+  { code: 'ACC201', title: 'Introduction to Accounting', credits: 2, level: 200, semester: 1, department: 'Business Administration' },
+  { code: 'FIN301', title: 'Personal Finance Management', credits: 2, level: 300, semester: 2, department: 'Business Administration' },
+  { code: 'MKT301', title: 'Consumer Behavior', credits: 2, level: 300, semester: 1, department: 'Business Administration' },
+  
+  // Science Electives
+  { code: 'ENV201', title: 'Environmental Science', credits: 2, level: 200, semester: 2, department: 'Physics' },
+  { code: 'NUT301', title: 'Nutrition and Health', credits: 2, level: 300, semester: 1, department: 'Biology' },
+  { code: 'GEN301', title: 'Genetics for Non-Biologists', credits: 2, level: 300, semester: 2, department: 'Biology' },
 ];
 
 function getRandomElement<T>(array: T[]): T {
@@ -63,23 +449,29 @@ async function seedUsers() {
   console.log('Seeding users...');
   const hashedPassword = await bcrypt.hash('password123', 10);
 
-  await prisma.user.createMany({
-    data: [
-      {
-        email: 'admin@ims.edu',
-        password: hashedPassword,
-        firstName: 'Admin',
-        lastName: 'User',
-        role: 'ADMIN',
-      },
-      {
-        email: 'staff@ims.edu',
-        password: hashedPassword,
-        firstName: 'Staff',
-        lastName: 'Member',
-        role: 'STAFF',
-      },
-    ],
+  // Use upsert to avoid duplicate errors
+  await prisma.user.upsert({
+    where: { email: 'admin@ims.edu' },
+    update: {},
+    create: {
+      email: 'admin@ims.edu',
+      password: hashedPassword,
+      firstName: 'Admin',
+      lastName: 'User',
+      role: 'ADMIN',
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { email: 'staff@ims.edu' },
+    update: {},
+    create: {
+      email: 'staff@ims.edu',
+      password: hashedPassword,
+      firstName: 'Staff',
+      lastName: 'Member',
+      role: 'STAFF',
+    },
   });
 
   console.log('✓ Users seeded');
@@ -87,9 +479,16 @@ async function seedUsers() {
 
 async function seedDepartments() {
   console.log('Seeding departments...');
-  await prisma.department.createMany({
-    data: departments,
-  });
+  
+  // Use upsert to avoid duplicates
+  for (const dept of departments) {
+    await prisma.department.upsert({
+      where: { code: dept.code },
+      update: {},
+      create: dept,
+    });
+  }
+  
   console.log('✓ Departments seeded');
 }
 
@@ -100,9 +499,19 @@ async function seedSessions() {
   const lastYear = currentYear - 1;
   const nextYear = currentYear + 1;
   
+  // Check if sessions already exist
+  const existingSessions = await prisma.session.findMany();
+  
+  if (existingSessions.length >= 3) {
+    console.log(`✓ Sessions already exist (${existingSessions.length} found), skipping...`);
+    return;
+  }
+  
   // Previous session (Completed)
-  const previousSession = await prisma.session.create({
-    data: {
+  const previousSession = await prisma.session.upsert({
+    where: { name: `${lastYear}/${currentYear}` },
+    update: {},
+    create: {
       name: `${lastYear}/${currentYear}`,
       startDate: new Date(`${lastYear}-09-01`),
       endDate: new Date(`${currentYear}-08-31`),
@@ -130,8 +539,10 @@ async function seedSessions() {
   });
 
   // Current session (Active)
-  const currentSession = await prisma.session.create({
-    data: {
+  const currentSession = await prisma.session.upsert({
+    where: { name: `${currentYear}/${nextYear}` },
+    update: {},
+    create: {
       name: `${currentYear}/${nextYear}`,
       startDate: new Date(`${currentYear}-09-01`),
       endDate: new Date(`${nextYear}-08-31`),
@@ -159,8 +570,10 @@ async function seedSessions() {
   });
 
   // Next session (Upcoming)
-  const nextSession = await prisma.session.create({
-    data: {
+  const nextSession = await prisma.session.upsert({
+    where: { name: `${nextYear}/${nextYear + 1}` },
+    update: {},
+    create: {
       name: `${nextYear}/${nextYear + 1}`,
       startDate: new Date(`${nextYear}-09-01`),
       endDate: new Date(`${nextYear + 1}-08-31`),
@@ -251,8 +664,10 @@ async function seedPrograms() {
     const programs = programsByDepartment[dept.name as keyof typeof programsByDepartment];
     if (programs) {
       for (const program of programs) {
-        await prisma.program.create({
-          data: {
+        await prisma.program.upsert({
+          where: { code: program.code },
+          update: {},
+          create: {
             ...program,
             departmentId: dept.id,
           },
@@ -321,72 +736,310 @@ async function seedApplicants() {
 }
 
 async function seedStudents() {
-  console.log(`Seeding ${TOTAL_STUDENTS} students...`);
+  console.log(`Seeding ${TOTAL_STUDENTS} students with Nigerian names and realistic data...`);
+  
+  // Fetch all departments
   const depts = await prisma.department.findMany();
-  const students = [];
-
-  for (let i = 0; i < TOTAL_STUDENTS; i++) {
-    const firstName = getRandomElement(firstNames);
-    const lastName = getRandomElement(lastNames);
-    const year = Math.floor(Math.random() * 5) + 2019;
-    const matricNo = `IMS/${year}/${String(i + 1000).padStart(5, '0')}`;
-
-    students.push({
-      matricNo,
-      firstName,
-      lastName,
-      email: `${matricNo.replace(/\//g, '.')}@student.ims.edu`,
-      username: `${firstName.toLowerCase()}${lastName.toLowerCase()}${i}`,
-      phone: `+234${Math.floor(Math.random() * 9000000000) + 1000000000}`,
-      dateOfBirth: getRandomDate(new Date(1995, 0, 1), new Date(2005, 11, 31)),
-      gender: Math.random() > 0.5 ? 'MALE' : 'FEMALE',
-      address: `${Math.floor(Math.random() * 999) + 1} ${getRandomElement(lastNames)} Avenue`,
-      departmentId: getRandomElement(depts).id,
-      currentLevel: getRandomElement([100, 200, 300, 400]),
-      status: getRandomElement(['ACTIVE', 'ACTIVE', 'ACTIVE', 'GRADUATED', 'SUSPENDED']),
-    } as any);
+  
+  if (depts.length === 0) {
+    console.error('No departments found. Cannot seed students.');
+    return;
   }
 
-  await prisma.student.createMany({
-    data: students as any,
+  console.log(`Found ${depts.length} departments`);
+
+  // Fetch all programs
+  const programs = await prisma.program.findMany();
+  
+  if (programs.length === 0) {
+    console.error('No programs found. Cannot seed students.');
+    return;
+  }
+
+  // Fetch active session
+  const activeSession = await prisma.session.findFirst({
+    where: { isActive: true }
   });
 
-  console.log('✓ Students seeded');
+  if (!activeSession) {
+    console.error('No active session found. Cannot seed students.');
+    return;
+  }
+
+  // Define levels and their distribution (total: 1500)
+  const levels = [100, 200, 300, 400, 500];
+  const levelDistribution = [450, 400, 350, 200, 100]; // More realistic distribution
+
+  // Email domains for variety
+  const emailDomains = [
+    'gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'protonmail.com',
+    'icloud.com', 'aol.com', 'mail.com'
+  ];
+
+  // Helper functions
+  const generateMatricNo = (year: number, deptCode: string, index: number): string => {
+    return `IMS/${year}/${deptCode}/${String(index).padStart(5, '0')}`;
+  };
+
+  const generateEmail = (firstName: string, lastName: string, index: number): string => {
+    const domain = emailDomains[Math.floor(Math.random() * emailDomains.length)];
+    return `${firstName.toLowerCase()}.${lastName.toLowerCase()}${index}@${domain}`;
+  };
+
+  const generatePhone = (): string => {
+    const prefixes = ['0803', '0806', '0810', '0813', '0816', '0703', '0706', '0805', '0807', '0811', '0814', '0815', '0905', '0906'];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const rest = Math.floor(Math.random() * 10000000);
+    return `${prefix}${String(rest).padStart(7, '0')}`;
+  };
+
+  const cities = ['Lagos', 'Abuja', 'Kano', 'Port Harcourt', 'Ibadan', 'Enugu', 'Jos', 'Kaduna', 'Maiduguri', 'Benin City'];
+
+  const hashedPassword = await bcrypt.hash('password123', 10);
+  
+  let totalCreated = 0;
+  let counter = 1;
+
+  // Calculate students per department per level
+  const studentsPerDept = Math.floor(TOTAL_STUDENTS / depts.length);
+
+  // Create students distributed across departments and levels
+  for (const department of depts) {
+    const deptCode = department.code.toUpperCase();
+    let deptStudents = 0;
+
+    for (let levelIndex = 0; levelIndex < levels.length; levelIndex++) {
+      const level = levels[levelIndex];
+      const studentsForLevel = Math.floor((levelDistribution[levelIndex] / TOTAL_STUDENTS) * studentsPerDept);
+
+      for (let i = 0; i < studentsForLevel; i++) {
+        const firstName = getRandomElement(firstNames);
+        const lastName = getRandomElement(lastNames);
+        const gender = Math.random() > 0.5 ? 'MALE' : 'FEMALE';
+        const email = generateEmail(firstName, lastName, counter);
+        const phone = generatePhone();
+        
+        // Generate unique matric number
+        const currentYear = 2024 + Math.floor(Math.random() * 3); // 2024-2026
+        const matricNo = generateMatricNo(currentYear, deptCode, counter++);
+        
+        // Random enrollment date within the session
+        const enrollmentDate = getRandomDate(
+          new Date(2023, 8, 1), // Sept 1, 2023
+          new Date(2025, 11, 31) // Dec 31, 2025
+        );
+
+        // Random date of birth (18-25 years old)
+        const dateOfBirth = getRandomDate(
+          new Date(1998, 0, 1),
+          new Date(2006, 11, 31)
+        );
+
+        // Random address
+        const address = `${Math.floor(Math.random() * 100) + 1} ${getRandomElement(lastNames)} Street, ${getRandomElement(cities)}`;
+
+        try {
+          await prisma.student.create({
+            data: {
+              matricNo,
+              firstName,
+              lastName,
+              email,
+              phone,
+              gender: gender as any,
+              dateOfBirth,
+              address,
+              departmentId: department.id,
+              programId: programs[Math.floor(Math.random() * programs.length)].id,
+              currentLevel: level,
+              enrollmentDate,
+              status: 'ACTIVE',
+              acceptanceFeePaid: true,
+              currentSessionId: activeSession.id,
+              password: hashedPassword,
+              username: matricNo,
+              walletBalance: 0,
+              cgpa: 0,
+            },
+          });
+
+          deptStudents++;
+          totalCreated++;
+        } catch (error: any) {
+          if (error.code === 'P2002') {
+            // Duplicate entry, skip
+            counter++;
+            continue;
+          }
+          throw error;
+        }
+      }
+    }
+
+    console.log(`  ✓ Created ${deptStudents} students for ${department.name}`);
+  }
+
+  // Fill remaining students to reach exactly 1500
+  let remaining = TOTAL_STUDENTS - totalCreated;
+  if (remaining > 0) {
+    console.log(`\n  Creating ${remaining} additional students to reach ${TOTAL_STUDENTS}...`);
+    
+    for (let i = 0; i < remaining; i++) {
+      const department = getRandomElement(depts);
+      const level = getRandomElement(levels);
+      const firstName = getRandomElement(firstNames);
+      const lastName = getRandomElement(lastNames);
+      const gender = Math.random() > 0.5 ? 'MALE' : 'FEMALE';
+      const email = generateEmail(firstName, lastName, counter);
+      const phone = generatePhone();
+      
+      const currentYear = 2024 + Math.floor(Math.random() * 3);
+      const matricNo = generateMatricNo(currentYear, department.code.toUpperCase(), counter++);
+      
+      const enrollmentDate = getRandomDate(
+        new Date(2023, 8, 1),
+        new Date(2025, 11, 31)
+      );
+
+      const dateOfBirth = getRandomDate(
+        new Date(1998, 0, 1),
+        new Date(2006, 11, 31)
+      );
+
+      const address = `${Math.floor(Math.random() * 100) + 1} ${getRandomElement(lastNames)} Street, ${getRandomElement(cities)}`;
+
+      try {
+        await prisma.student.create({
+          data: {
+            matricNo,
+            firstName,
+            lastName,
+            email,
+            phone,
+            gender: gender as any,
+            dateOfBirth,
+            address,
+            departmentId: department.id,
+            programId: programs[Math.floor(Math.random() * programs.length)].id,
+            currentLevel: level,
+            enrollmentDate,
+            status: 'ACTIVE',
+            acceptanceFeePaid: true,
+            currentSessionId: activeSession.id,
+            password: hashedPassword,
+            username: matricNo,
+            walletBalance: 0,
+            cgpa: 0,
+          },
+        });
+
+        totalCreated++;
+      } catch (error: any) {
+        if (error.code === 'P2002') {
+          remaining++;
+          counter++;
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+
+  console.log(`\n✓ Successfully created ${totalCreated} students!`);
+  
+  // Show distribution summary
+  console.log('\n  === STUDENT DISTRIBUTION BY DEPARTMENT ===');
+  for (const department of depts) {
+    const count = await prisma.student.count({
+      where: { departmentId: department.id }
+    });
+    console.log(`  ${department.name}: ${count} students`);
+  }
+
+  console.log('\n  === STUDENT DISTRIBUTION BY LEVEL ===');
+  for (const level of levels) {
+    const count = await prisma.student.count({
+      where: { currentLevel: level }
+    });
+    console.log(`  Level ${level}: ${count} students`);
+  }
+
+  const totalStudents = await prisma.student.count();
+  console.log(`\n  Total students in database: ${totalStudents}`);
+  console.log('✓ Students seeded successfully');
 }
 
 async function seedCourses() {
-  console.log(`Seeding ${TOTAL_COURSES} courses...`);
+  console.log(`Seeding ${TOTAL_COURSES} comprehensive courses...`);
   const depts = await prisma.department.findMany();
-  const courses = [];
 
-  let courseCounter = 1;
+  let totalCoursesAdded = 0;
+  
+  // Add department-specific courses
   for (const dept of depts) {
-    for (let i = 0; i < 10; i++) {
-      const template = getRandomElement(courseTemplates);
-      const code = `${dept.code}${template.level + i * 10}`;
-      const title = `${template.prefix} ${dept.name}`;
-
-      courses.push({
-        code,
-        title: `${title} ${i + 1}`,
-        description: `This course covers ${title.toLowerCase()} with practical applications`,
-        credits: template.credits,
-        departmentId: dept.id,
-        level: template.level,
-        semester: Math.random() > 0.5 ? 1 : 2,
-      });
-
-      courseCounter++;
-      if (courseCounter > TOTAL_COURSES) break;
+    const departmentCourses = comprehensiveCoursesByDepartment[dept.name];
+    
+    if (departmentCourses && departmentCourses.length > 0) {
+      console.log(`  Adding ${departmentCourses.length} courses for ${dept.name}...`);
+      
+      for (const course of departmentCourses) {
+        await prisma.course.upsert({
+          where: { code: course.code },
+          update: {
+            title: course.title,
+            credits: course.credits,
+            level: course.level,
+            semester: course.semester,
+            departmentId: dept.id,
+            isElective: false,
+          },
+          create: {
+            code: course.code,
+            title: course.title,
+            credits: course.credits,
+            level: course.level,
+            semester: course.semester,
+            departmentId: dept.id,
+            isElective: false,
+            description: `${course.title} - ${dept.name} Department`,
+          },
+        });
+        totalCoursesAdded++;
+      }
     }
-    if (courseCounter > TOTAL_COURSES) break;
   }
 
-  await prisma.course.createMany({
-    data: courses,
-  });
+  // Add elective courses
+  console.log(`\n  Adding ${electiveCourses.length} elective courses...`);
+  for (const course of electiveCourses) {
+    const dept = depts.find(d => d.name === course.department);
+    if (dept) {
+      await prisma.course.upsert({
+        where: { code: course.code },
+        update: {
+          title: course.title,
+          credits: course.credits,
+          level: course.level,
+          semester: course.semester,
+          departmentId: dept.id,
+          isElective: true,
+        },
+        create: {
+          code: course.code,
+          title: course.title,
+          credits: course.credits,
+          level: course.level,
+          semester: course.semester,
+          departmentId: dept.id,
+          isElective: true,
+          description: `${course.title} - Elective Course`,
+        },
+      });
+      totalCoursesAdded++;
+    }
+  }
 
-  console.log('✓ Courses seeded');
+  console.log(`✓ Courses seeded: ${totalCoursesAdded} courses (${totalCoursesAdded - electiveCourses.length} core + ${electiveCourses.length} electives)`);
 }
 
 async function seedCourseRegistrations() {
@@ -479,6 +1132,97 @@ async function seedExamsAndScores() {
   console.log('✓ Exams and scores seeded');
 }
 
+/**
+ * Seed failed course results for carry over testing
+ * Only for students in levels 200-500
+ */
+async function seedCarryOverTestData() {
+  console.log('Seeding carry over test data (failed courses for levels 200-500)...');
+
+  const sessions = await prisma.session.findMany({
+    orderBy: { startDate: 'asc' },
+  });
+
+  if (sessions.length < 2) {
+    console.log('⚠️  Not enough sessions for carry over data. Skipping...');
+    return;
+  }
+
+  // Get students from levels 200-500 across different departments
+  const eligibleStudents = await prisma.student.findMany({
+    where: {
+      currentLevel: {
+        gte: 200,
+        lte: 500,
+      },
+    },
+    include: {
+      department: true,
+    },
+    take: 50, // Select 50 students for testing
+  });
+
+  if (eligibleStudents.length === 0) {
+    console.log('⚠️  No eligible students found for carry over data. Skipping...');
+    return;
+  }
+
+  console.log(`   Found ${eligibleStudents.length} eligible students (level 200-500)`);
+
+  let failedCoursesCount = 0;
+
+  // For each eligible student, create 1-3 failed course results
+  for (const student of eligibleStudents) {
+    // Get courses from student's department at earlier levels
+    const coursesForLevel = await prisma.course.findMany({
+      where: {
+        departmentId: student.departmentId,
+        level: {
+          lt: student.currentLevel, // Courses from earlier levels
+        },
+      },
+      take: 5, // Get some courses to choose from
+    });
+
+    if (coursesForLevel.length === 0) continue;
+
+    // Randomly select 1-3 courses to fail
+    const numberOfFailures = Math.floor(Math.random() * 3) + 1; // 1-3 failures
+    const failedCourses = coursesForLevel
+      .sort(() => Math.random() - 0.5)
+      .slice(0, Math.min(numberOfFailures, coursesForLevel.length));
+
+    // Use an older session (not the current one)
+    const oldSession = sessions[0]; // First/oldest session
+
+    for (const course of failedCourses) {
+      try {
+        // Create a failed result
+        await prisma.result.create({
+          data: {
+            studentId: student.id,
+            courseId: course.id,
+            sessionId: oldSession.id,
+            semester: course.semester,
+            score: Math.floor(Math.random() * 40), // 0-39 (failing score)
+            grade: 'F',
+            gradePoint: 0.0,
+            isCarryOver: false, // Original attempt
+            remarks: 'Failed - eligible for carry over',
+          },
+        });
+        failedCoursesCount++;
+      } catch (error) {
+        // Skip if duplicate (student already has result for this course)
+        continue;
+      }
+    }
+  }
+
+  console.log(`✓ Carry over test data seeded: ${failedCoursesCount} failed courses across ${eligibleStudents.length} students`);
+  console.log(`   Students can now register carry over courses for previously failed courses`);
+}
+
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
@@ -532,6 +1276,7 @@ async function main() {
     await seedCourses();
     await seedCourseRegistrations();
     await seedExamsAndScores();
+    await seedCarryOverTestData(); // Add failed courses for carry over testing
 
     // Statistics
     const stats = {
@@ -545,6 +1290,8 @@ async function main() {
       courseRegistrations: await prisma.courseRegistration.count(),
       exams: await prisma.exam.count(),
       scores: await prisma.score.count(),
+      results: await prisma.result.count(),
+      failedResults: await prisma.result.count({ where: { grade: 'F' } }),
     };
 
     console.log('\n✅ Database seeded successfully!\n');
@@ -559,6 +1306,8 @@ async function main() {
     console.log(`   Course Registrations: ${stats.courseRegistrations}`);
     console.log(`   Exams: ${stats.exams}`);
     console.log(`   Scores: ${stats.scores}`);
+    console.log(`   Results: ${stats.results}`);
+    console.log(`   Failed Courses (eligible for carry over): ${stats.failedResults}`);
     console.log(`\n   Total Records: ${Object.values(stats).reduce((a, b) => a + b, 0)}`);
   } catch (error) {
     console.error('❌ Error seeding database:', error);

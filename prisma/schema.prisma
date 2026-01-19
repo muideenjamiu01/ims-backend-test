@@ -193,6 +193,7 @@ model Course {
   departmentId        Int
   level               Int
   semester            Int
+  isElective          Boolean              @default(false)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   prerequisite        String?
@@ -224,6 +225,13 @@ model CourseRegistration {
   sessionId        Int?
   level            Int?
   status           RegistrationStatus? @default(REGISTERED)
+  
+  // Carry over / Repeat course fields
+  type             CourseType          @default(NORMAL)
+  retakeType       RetakeType?
+  previousAttempts Int                 @default(0)
+  originalSessionId Int?               // Session when course was first taken
+  originalSemester  Int?               // Semester when course was first taken
   
   course           Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
   semesterRecord   Semester?           @relation(fields: [semesterId], references: [id])
@@ -680,4 +688,14 @@ enum SemesterStatus {
   ACTIVE
   COMPLETED
   ARCHIVED
+}
+
+enum CourseType {
+  NORMAL
+  CARRY_OVER
+}
+
+enum RetakeType {
+  EXAM_ONLY
+  FULL_COURSE
 }
