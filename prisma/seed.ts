@@ -394,6 +394,49 @@ const comprehensiveCoursesByDepartment: Record<string, Array<{code: string; titl
   ],
 };
 
+// Elective courses available to all departments (GST, Inter-departmental electives)
+const electiveCourses = [
+  // 100 Level Electives
+  { code: 'GST101', title: 'Use of English I', credits: 2, level: 100, semester: 1, department: 'Computer Science' },
+  { code: 'GST102', title: 'Use of English II', credits: 2, level: 100, semester: 2, department: 'Computer Science' },
+  { code: 'GST103', title: 'Nigerian Peoples and Culture', credits: 2, level: 100, semester: 1, department: 'Computer Science' },
+  { code: 'GST104', title: 'History and Philosophy of Science', credits: 2, level: 100, semester: 2, department: 'Computer Science' },
+  { code: 'BIO101', title: 'General Biology', credits: 2, level: 100, semester: 1, department: 'Computer Science' },
+  { code: 'STA101', title: 'Introduction to Statistics', credits: 2, level: 100, semester: 2, department: 'Computer Science' },
+  { code: 'CHM101', title: 'General Chemistry', credits: 2, level: 100, semester: 1, department: 'Computer Science' },
+  
+  // 200 Level Electives
+  { code: 'GST201', title: 'Entrepreneurship Studies', credits: 2, level: 200, semester: 1, department: 'Computer Science' },
+  { code: 'GST202', title: 'Leadership and Interpersonal Skills', credits: 2, level: 200, semester: 2, department: 'Computer Science' },
+  { code: 'STA201', title: 'Probability and Statistics', credits: 2, level: 200, semester: 1, department: 'Computer Science' },
+  { code: 'MGT201', title: 'Introduction to Management', credits: 2, level: 200, semester: 2, department: 'Computer Science' },
+  
+  // 300 Level Electives
+  { code: 'GST301', title: 'Research Methodology', credits: 2, level: 300, semester: 1, department: 'Computer Science' },
+  { code: 'ENT301', title: 'Business Planning and Development', credits: 2, level: 300, semester: 2, department: 'Computer Science' },
+  { code: 'PSY301', title: 'Organizational Psychology', credits: 2, level: 300, semester: 1, department: 'Computer Science' },
+  
+  // 400 Level Electives
+  { code: 'GST401', title: 'Technical Report Writing', credits: 2, level: 400, semester: 1, department: 'Computer Science' },
+  { code: 'LAW401', title: 'Intellectual Property Law', credits: 2, level: 400, semester: 2, department: 'Computer Science' },
+  { code: 'MKT401', title: 'Digital Marketing', credits: 2, level: 400, semester: 1, department: 'Computer Science' },
+  
+  // Engineering Electives (for all engineering departments)
+  { code: 'ENG201', title: 'Engineering Economics', credits: 2, level: 200, semester: 1, department: 'Electrical Engineering' },
+  { code: 'ENG301', title: 'Engineering Management', credits: 2, level: 300, semester: 2, department: 'Electrical Engineering' },
+  { code: 'ENG401', title: 'Professional Ethics in Engineering', credits: 2, level: 400, semester: 1, department: 'Mechanical Engineering' },
+  
+  // Business Electives
+  { code: 'ACC201', title: 'Introduction to Accounting', credits: 2, level: 200, semester: 1, department: 'Business Administration' },
+  { code: 'FIN301', title: 'Personal Finance Management', credits: 2, level: 300, semester: 2, department: 'Business Administration' },
+  { code: 'MKT301', title: 'Consumer Behavior', credits: 2, level: 300, semester: 1, department: 'Business Administration' },
+  
+  // Science Electives
+  { code: 'ENV201', title: 'Environmental Science', credits: 2, level: 200, semester: 2, department: 'Physics' },
+  { code: 'NUT301', title: 'Nutrition and Health', credits: 2, level: 300, semester: 1, department: 'Biology' },
+  { code: 'GEN301', title: 'Genetics for Non-Biologists', credits: 2, level: 300, semester: 2, department: 'Biology' },
+];
+
 function getRandomElement<T>(array: T[]): T {
   return array[Math.floor(Math.random() * array.length)];
 }
@@ -932,6 +975,7 @@ async function seedCourses() {
 
   let totalCoursesAdded = 0;
   
+  // Add department-specific courses
   for (const dept of depts) {
     const departmentCourses = comprehensiveCoursesByDepartment[dept.name];
     
@@ -947,6 +991,7 @@ async function seedCourses() {
             level: course.level,
             semester: course.semester,
             departmentId: dept.id,
+            isElective: false,
           },
           create: {
             code: course.code,
@@ -955,6 +1000,7 @@ async function seedCourses() {
             level: course.level,
             semester: course.semester,
             departmentId: dept.id,
+            isElective: false,
             description: `${course.title} - ${dept.name} Department`,
           },
         });
@@ -963,7 +1009,37 @@ async function seedCourses() {
     }
   }
 
-  console.log(`✓ Courses seeded: ${totalCoursesAdded} courses across all departments`);
+  // Add elective courses
+  console.log(`\n  Adding ${electiveCourses.length} elective courses...`);
+  for (const course of electiveCourses) {
+    const dept = depts.find(d => d.name === course.department);
+    if (dept) {
+      await prisma.course.upsert({
+        where: { code: course.code },
+        update: {
+          title: course.title,
+          credits: course.credits,
+          level: course.level,
+          semester: course.semester,
+          departmentId: dept.id,
+          isElective: true,
+        },
+        create: {
+          code: course.code,
+          title: course.title,
+          credits: course.credits,
+          level: course.level,
+          semester: course.semester,
+          departmentId: dept.id,
+          isElective: true,
+          description: `${course.title} - Elective Course`,
+        },
+      });
+      totalCoursesAdded++;
+    }
+  }
+
+  console.log(`✓ Courses seeded: ${totalCoursesAdded} courses (${totalCoursesAdded - electiveCourses.length} core + ${electiveCourses.length} electives)`);
 }
 
 async function seedCourseRegistrations() {
@@ -1056,6 +1132,97 @@ async function seedExamsAndScores() {
   console.log('✓ Exams and scores seeded');
 }
 
+/**
+ * Seed failed course results for carry over testing
+ * Only for students in levels 200-500
+ */
+async function seedCarryOverTestData() {
+  console.log('Seeding carry over test data (failed courses for levels 200-500)...');
+
+  const sessions = await prisma.session.findMany({
+    orderBy: { startDate: 'asc' },
+  });
+
+  if (sessions.length < 2) {
+    console.log('⚠️  Not enough sessions for carry over data. Skipping...');
+    return;
+  }
+
+  // Get students from levels 200-500 across different departments
+  const eligibleStudents = await prisma.student.findMany({
+    where: {
+      currentLevel: {
+        gte: 200,
+        lte: 500,
+      },
+    },
+    include: {
+      department: true,
+    },
+    take: 50, // Select 50 students for testing
+  });
+
+  if (eligibleStudents.length === 0) {
+    console.log('⚠️  No eligible students found for carry over data. Skipping...');
+    return;
+  }
+
+  console.log(`   Found ${eligibleStudents.length} eligible students (level 200-500)`);
+
+  let failedCoursesCount = 0;
+
+  // For each eligible student, create 1-3 failed course results
+  for (const student of eligibleStudents) {
+    // Get courses from student's department at earlier levels
+    const coursesForLevel = await prisma.course.findMany({
+      where: {
+        departmentId: student.departmentId,
+        level: {
+          lt: student.currentLevel, // Courses from earlier levels
+        },
+      },
+      take: 5, // Get some courses to choose from
+    });
+
+    if (coursesForLevel.length === 0) continue;
+
+    // Randomly select 1-3 courses to fail
+    const numberOfFailures = Math.floor(Math.random() * 3) + 1; // 1-3 failures
+    const failedCourses = coursesForLevel
+      .sort(() => Math.random() - 0.5)
+      .slice(0, Math.min(numberOfFailures, coursesForLevel.length));
+
+    // Use an older session (not the current one)
+    const oldSession = sessions[0]; // First/oldest session
+
+    for (const course of failedCourses) {
+      try {
+        // Create a failed result
+        await prisma.result.create({
+          data: {
+            studentId: student.id,
+            courseId: course.id,
+            sessionId: oldSession.id,
+            semester: course.semester,
+            score: Math.floor(Math.random() * 40), // 0-39 (failing score)
+            grade: 'F',
+            gradePoint: 0.0,
+            isCarryOver: false, // Original attempt
+            remarks: 'Failed - eligible for carry over',
+          },
+        });
+        failedCoursesCount++;
+      } catch (error) {
+        // Skip if duplicate (student already has result for this course)
+        continue;
+      }
+    }
+  }
+
+  console.log(`✓ Carry over test data seeded: ${failedCoursesCount} failed courses across ${eligibleStudents.length} students`);
+  console.log(`   Students can now register carry over courses for previously failed courses`);
+}
+
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
@@ -1109,6 +1276,7 @@ async function main() {
     await seedCourses();
     await seedCourseRegistrations();
     await seedExamsAndScores();
+    await seedCarryOverTestData(); // Add failed courses for carry over testing
 
     // Statistics
     const stats = {
@@ -1122,6 +1290,8 @@ async function main() {
       courseRegistrations: await prisma.courseRegistration.count(),
       exams: await prisma.exam.count(),
       scores: await prisma.score.count(),
+      results: await prisma.result.count(),
+      failedResults: await prisma.result.count({ where: { grade: 'F' } }),
     };
 
     console.log('\n✅ Database seeded successfully!\n');
@@ -1136,6 +1306,8 @@ async function main() {
     console.log(`   Course Registrations: ${stats.courseRegistrations}`);
     console.log(`   Exams: ${stats.exams}`);
     console.log(`   Scores: ${stats.scores}`);
+    console.log(`   Results: ${stats.results}`);
+    console.log(`   Failed Courses (eligible for carry over): ${stats.failedResults}`);
     console.log(`\n   Total Records: ${Object.values(stats).reduce((a, b) => a + b, 0)}`);
   } catch (error) {
     console.error('❌ Error seeding database:', error);

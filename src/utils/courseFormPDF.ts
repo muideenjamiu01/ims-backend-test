@@ -110,15 +110,19 @@ export const generateCourseFormPDF = async (
       ['Semester:', batch.semester.type === 'FIRST' ? 'First Semester' : 'Second Semester'],
     ];
 
+    const labelX = 50;
+    const valueX = 180;
+    
     studentInfo.forEach(([label, value]) => {
-      doc.text(label, 50, doc.y, { continued: true, width: 150 });
-      doc.text(value, 200);
+      const currentY = doc.y;
+      doc.text(label, labelX, currentY, { width: 130, align: 'left' });
+      doc.text(value, valueX, currentY);
     });
 
     doc.moveDown(1);
 
     // Add registration details
-    doc.font('Helvetica-Bold').text('REGISTRATION DETAILS', { underline: true });
+    doc.font('Helvetica-Bold').text('REGISTRATION DETAILS', 50, doc.y, { underline: true });
     doc.moveDown(0.5);
 
     doc.font('Helvetica');
@@ -135,7 +139,7 @@ export const generateCourseFormPDF = async (
     doc.moveDown(1);
 
     // Add courses table
-    doc.font('Helvetica-Bold').text('REGISTERED COURSES', { underline: true });
+    doc.font('Helvetica-Bold').text('REGISTERED COURSES', 50, doc.y, { underline: true });
     doc.moveDown(0.5);
 
     // Table headers
@@ -183,7 +187,7 @@ export const generateCourseFormPDF = async (
       });
       doc.text(item.course.credits.toString(), 50 + colWidths.sn + colWidths.code + colWidths.title, rowY);
       doc.text(
-        'Core', // TODO: Add isElective field to Course model if needed
+        item.course.isElective ? 'Elective' : 'Core',
         50 + colWidths.sn + colWidths.code + colWidths.title + colWidths.units,
         rowY
       );

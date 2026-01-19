@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { StudentAuthRequest } from '../types/express';
 import logger from '../config/logger';
 import { downloadCourseForm } from '../utils/courseFormPDF';
+import { getEligibleCarryOverCourses } from '../utils/carryOverHelpers';
 
 // Validation schemas
 const validateRegistrationSchema = z.object({
@@ -18,6 +19,10 @@ const submitRegistrationSchema = z.object({
   sessionId: z.number().int().positive(),
   semesterId: z.number().int().positive(),
   level: z.number().int().positive(),
+  carryOverCourses: z.array(z.object({
+    courseId: z.number().int().positive(),
+    retakeType: z.enum(['EXAM_ONLY', 'FULL_COURSE']).optional(),
+  })).optional().default([]),
 });
 
 /**
@@ -124,6 +129,30 @@ export const getAvailableCourses = async (req: StudentAuthRequest, res: Response
     res.status(500).json({
       success: false,
       message: 'Failed to fetch available courses',
+    });
+  }
+};
+
+/**
+ * Get eligible carry over courses for student
+ * Only available for students in levels 200-500
+ */
+export const getCarryOverCourses = async (req: StudentAuthRequest, res: Response) => {
+  try {
+    const studentId = req.student!.id;
+
+    const carryOverCourses = await getEligibleCarryOverCourses(studentId);
+
+    res.json({
+      success: true,
+      data: carryOverCourses,
+      count: carryOverCourses.length,
+    });
+  } catch (error) {
+    logger.error('Get carry over courses error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch carry over courses',
     });
   }
 };
@@ -327,8 +356,38 @@ export const submitRegistration = async (req: StudentAuthRequest, res: Response)
       });
     }
 
-    // Calculate total units
-    const totalUnits = courses.reduce((sum, course) => sum + course.credits, 0);
+    // Get carry over courses if provided
+    let carryOverCourses: any[] = [];
+    if (data.carryOverCourses && data.carryOverCourses.length > 0) {
+      const carryOverCourseIds = data.carryOverCourses.map(c => c.courseId);
+      carryOverCourses = await prisma.course.findMany({
+        where: { id: { in: carryOverCourseIds } },
+      });
+
+      if (carryOverCourses.length !== data.carryOverCourses.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'Some carry over courses not found',
+        });
+      }
+
+      // Validate carry over eligibility
+      const { validateCarryOverRegistration } = await import('../utils/carryOverHelpers');
+      for (const carryOver of data.carryOverCourses) {
+        const validation = await validateCarryOverRegistration(studentId, carryOver.courseId);
+        if (!validation.valid) {
+          return res.status(400).json({
+            success: false,
+            message: validation.error || 'Invalid carry over course',
+          });
+        }
+      }
+    }
+
+    // Calculate total units (normal + carry over)
+    const normalUnits = courses.reduce((sum, course) => sum + course.credits, 0);
+    const carryOverUnits = carryOverCourses.reduce((sum, course) => sum + course.credits, 0);
+    const totalUnits = normalUnits + carryOverUnits;
 
     // Validate units
     if (totalUnits < 10 || totalUnits > 24) {
@@ -350,13 +409,16 @@ export const submitRegistration = async (req: StudentAuthRequest, res: Response)
       },
     });
 
-    // Don't allow if already approved
+    // Don't allow if already approved - student must contact admin to modify
     if (existingBatch && existingBatch.status === 'APPROVED') {
       return res.status(400).json({
         success: false,
-        message: 'You have already been approved for this registration period',
+        message: 'Your registration has already been approved. Please contact the admin if you need to make changes.',
       });
     }
+
+    // If pending or returned, allow editing by deleting and recreating
+    // This prevents duplicate registrations for the same session/semester
 
     // Use transaction to create or update batch
     const batch = await prisma.$transaction(async (tx) => {
@@ -400,15 +462,83 @@ export const submitRegistration = async (req: StudentAuthRequest, res: Response)
         },
       });
 
+      // Create carry over course registrations separately
+      if (data.carryOverCourses && data.carryOverCourses.length > 0) {
+        for (const carryOver of data.carryOverCourses) {
+          // Get original session/semester for this failed course
+          const failedResult = await tx.result.findFirst({
+            where: {
+              studentId,
+              courseId: carryOver.courseId,
+              grade: 'F',
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+
+          // Count previous attempts
+          const previousAttempts = await tx.result.count({
+            where: {
+              studentId,
+              courseId: carryOver.courseId,
+            },
+          });
+
+          // Delete existing registration for this course if it exists
+          await tx.courseRegistration.deleteMany({
+            where: {
+              studentId,
+              courseId: carryOver.courseId,
+              academicYear: session.name,
+              semester: semester.type === 'FIRST' ? 1 : 2,
+            },
+          });
+
+          // Create new carry over registration
+          await tx.courseRegistration.create({
+            data: {
+              studentId,
+              courseId: carryOver.courseId,
+              sessionId: data.sessionId,
+              semesterId: data.semesterId,
+              level: data.level,
+              academicYear: session.name,
+              semester: semester.type === 'FIRST' ? 1 : 2,
+              type: 'CARRY_OVER',
+              retakeType: carryOver.retakeType || 'FULL_COURSE',
+              previousAttempts,
+              originalSessionId: failedResult?.sessionId,
+              originalSemester: failedResult?.semester,
+              status: 'REGISTERED',
+            },
+          });
+        }
+      }
+
       return newBatch;
     });
 
-    logger.info(`Course registration submitted for student ${studentId}`);
+    // Fetch carry over courses for the response
+    const carryOverRegistrations = await prisma.courseRegistration.findMany({
+      where: {
+        studentId,
+        sessionId: data.sessionId,
+        semesterId: data.semesterId,
+        type: 'CARRY_OVER',
+      },
+      include: {
+        course: true,
+      },
+    });
+
+    logger.info(`Course registration submitted for student ${studentId} (${data.carryOverCourses?.length || 0} carry over courses)`);
 
     res.json({
       success: true,
       message: 'Registration submitted successfully',
-      data: batch,
+      data: {
+        ...batch,
+        carryOverCourses: carryOverRegistrations,
+      },
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -420,9 +550,19 @@ export const submitRegistration = async (req: StudentAuthRequest, res: Response)
     }
 
     logger.error('Submit registration error:', error);
+    
+    // Log more details for debugging
+    if (error instanceof Error) {
+      logger.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Failed to submit registration',
+      error: process.env.NODE_ENV === 'development' ? (error as Error).message : undefined,
     });
   }
 };
